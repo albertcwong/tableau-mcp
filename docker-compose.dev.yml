@@ -1,0 +1,41 @@
+name: tableau-mcp
+
+services:
+  tableau-mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3927:3927"
+    env_file:
+      - .env.server
+    environment:
+      OAUTH_JWE_PRIVATE_KEY_PATH: /app/private.pem
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./private.pem:/app/private.pem:ro
+      - node_modules_dev:/app/node_modules
+
+  tableau-mcp-cloud:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3928:3928"
+    env_file:
+      - .env.cloud
+    environment:
+      OAUTH_JWE_PRIVATE_KEY_PATH: /app/private.pem
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./private.pem:/app/private.pem:ro
+      - node_modules_dev:/app/node_modules
+
+volumes:
+  node_modules_dev: {}

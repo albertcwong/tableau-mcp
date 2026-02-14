@@ -18,3 +18,5 @@ tableau-mcp.mcpb
 *.tgz
 *.tar.gz
 *.zip
+
+tmp/

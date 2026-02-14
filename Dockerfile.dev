@@ -1,0 +1,7 @@
+FROM node:22-alpine
+WORKDIR /app
+RUN npm install -g tsx
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
+# src/ and build/ will be volume-mounted at runtime
+CMD ["tsx", "watch", "--no-warnings", "src/index.ts"]

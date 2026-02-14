@@ -9,6 +9,17 @@ import { Server, serverName, serverVersion } from './server.js';
 import { startExpressServer } from './server/express.js';
 import { getExceptionMessage } from './utils/getExceptionMessage.js';
 
+// Handle uncaught exceptions and unhandled rejections to prevent process exit
+process.on('uncaughtException', (error) => {
+  writeToStderr(`Uncaught exception: ${getExceptionMessage(error)}`);
+});
+
+process.on('unhandledRejection', (reason) => {
+  writeToStderr(
+    `Unhandled rejection: ${reason instanceof Error ? getExceptionMessage(reason) : String(reason)}`,
+  );
+});
+
 async function startServer(): Promise<void> {
   dotenv.config();
   const config = getConfig();
