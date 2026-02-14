@@ -15,6 +15,8 @@ export const toolNames = [
   'generate-pulse-metric-value-insight-bundle',
   'generate-pulse-insight-brief',
   'search-content',
+  'list-users',
+  'list-sites',
 ] as const;
 export type ToolName = (typeof toolNames)[number];
 
@@ -24,6 +26,8 @@ export const toolGroupNames = [
   'view',
   'pulse',
   'content-exploration',
+  'users',
+  'sites',
 ] as const;
 export type ToolGroupName = (typeof toolGroupNames)[number];
 
@@ -41,6 +45,8 @@ export const toolGroups = {
     'generate-pulse-insight-brief',
   ],
   'content-exploration': ['search-content'],
+  users: ['list-users'],
+  sites: ['list-sites'],
 } as const satisfies Record<ToolGroupName, Array<ToolName>>;
 
 export function isToolName(value: unknown): value is ToolName {

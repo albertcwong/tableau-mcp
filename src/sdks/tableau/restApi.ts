@@ -17,6 +17,8 @@ import DatasourcesMethods from './methods/datasourcesMethods.js';
 import MetadataMethods from './methods/metadataMethods.js';
 import PulseMethods from './methods/pulseMethods.js';
 import { AuthenticatedServerMethods, ServerMethods } from './methods/serverMethods.js';
+import SitesMethods from './methods/sitesMethods.js';
+import UsersMethods from './methods/usersMethods.js';
 import ViewsMethods from './methods/viewsMethods.js';
 import VizqlDataServiceMethods from './methods/vizqlDataServiceMethods.js';
 import WorkbooksMethods from './methods/workbooksMethods.js';
@@ -43,6 +45,8 @@ export class RestApi {
   private _metadataMethods?: MetadataMethods;
   private _pulseMethods?: PulseMethods;
   private _serverMethods?: ServerMethods;
+  private _sitesMethods?: SitesMethods;
+  private _usersMethods?: UsersMethods;
   private _vizqlDataServiceMethods?: VizqlDataServiceMethods;
   private _viewsMethods?: ViewsMethods;
   private _workbooksMethods?: WorkbooksMethods;
@@ -211,6 +215,30 @@ export class RestApi {
     }
 
     return this._vizqlDataServiceMethods;
+  }
+
+  get usersMethods(): UsersMethods {
+    if (!this._usersMethods) {
+      this._usersMethods = new UsersMethods(this._baseUrl, this.creds, {
+        timeout: this._maxRequestTimeoutMs,
+        signal: this._signal,
+      });
+      this._addInterceptors(this._baseUrl, this._usersMethods.interceptors);
+    }
+
+    return this._usersMethods;
+  }
+
+  get sitesMethods(): SitesMethods {
+    if (!this._sitesMethods) {
+      this._sitesMethods = new SitesMethods(this._baseUrl, this.creds, {
+        timeout: this._maxRequestTimeoutMs,
+        signal: this._signal,
+      });
+      this._addInterceptors(this._baseUrl, this._sitesMethods.interceptors);
+    }
+
+    return this._sitesMethods;
   }
 
   get viewsMethods(): ViewsMethods {
