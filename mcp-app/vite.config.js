@@ -4,7 +4,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 export default defineConfig({
   plugins: [viteSingleFile()],
   build: {
-    outDir: '../build',
+    outDir: 'build',
     emptyOutDir: false,
     rollupOptions: {
       input: 'mcp-app/mcp-app.html',

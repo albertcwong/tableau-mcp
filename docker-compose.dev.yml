@@ -11,8 +11,11 @@ services:
       - .env.embark
     environment:
       OAUTH_JWE_PRIVATE_KEY_PATH: /app/private.pem
+      DEFAULT_LOG_LEVEL: debug
     volumes:
       - ./src:/app/src
+      - ./build:/app/build
+      - ./mcp-app:/app/mcp-app
       - ./package.json:/app/package.json
       - ./package-lock.json:/app/package-lock.json
       - ./tsconfig.json:/app/tsconfig.json
@@ -29,8 +32,11 @@ services:
       - .env.cloud
     environment:
       OAUTH_JWE_PRIVATE_KEY_PATH: /app/private.pem
+      DEFAULT_LOG_LEVEL: debug
     volumes:
       - ./src:/app/src
+      - ./build:/app/build
+      - ./mcp-app:/app/mcp-app
       - ./package.json:/app/package.json
       - ./package-lock.json:/app/package-lock.json
       - ./tsconfig.json:/app/tsconfig.json
@@ -45,8 +51,12 @@ services:
       - "3929:3929"
     env_file:
       - .env.ta
+    environment:
+      DEFAULT_LOG_LEVEL: debug
     volumes:
       - ./src:/app/src
+      - ./build:/app/build
+      - ./mcp-app:/app/mcp-app
       - ./package.json:/app/package.json
       - ./package-lock.json:/app/package-lock.json
       - ./tsconfig.json:/app/tsconfig.json

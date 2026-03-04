@@ -141,6 +141,22 @@ export const getListDatasourcesTool = (server: Server): Tool<typeof paramsSchema
         },
         constrainSuccessResult: (datasources) =>
           constrainDatasources({ datasources, boundedContext: configWithOverrides.boundedContext }),
+        getSuccessResult: (datasources) => {
+          const rows = datasources.map((ds) => ({
+            name: ds.name,
+            id: ds.id,
+            projectName: ds.project?.name ?? '',
+            description: ds.description ?? '',
+          }));
+          const columns = rows[0]
+            ? Object.keys(rows[0]).map((name) => ({ name }))
+            : [{ name: 'name' }, { name: 'id' }, { name: 'projectName' }, { name: 'description' }];
+          return {
+            isError: false,
+            content: [{ type: 'text' as const, text: JSON.stringify(datasources) }],
+            structuredContent: { columns, rows },
+          };
+        },
         productTelemetryBase: createProductTelemetryBase(config, authInfo),
       });
     },

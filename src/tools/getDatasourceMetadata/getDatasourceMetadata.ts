@@ -193,6 +193,23 @@ export const getGetDatasourceMetadataTool = (server: Server): Tool<typeof params
             result: fields,
           };
         },
+        getSuccessResult: (fields) => {
+          const rows = fields.fields.map((f) => ({
+            name: f.name ?? '',
+            dataType: f.dataType ?? '',
+            columnClass: f.columnClass ?? '',
+            defaultAggregation: f.defaultAggregation ?? '',
+            role: f.role ?? '',
+            dataCategory: f.dataCategory ?? '',
+          }));
+          const columns =
+            rows[0] ? Object.keys(rows[0]).map((name) => ({ name })) : [];
+          return {
+            isError: false,
+            content: [{ type: 'text' as const, text: JSON.stringify(fields) }],
+            structuredContent: { columns, rows },
+          };
+        },
         getErrorText: (error: GetDatasourceMetadataError) => {
           switch (error.type) {
             case 'feature-disabled':

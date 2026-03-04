@@ -25,6 +25,9 @@
   "scripts": {
     "build": "tsx src/scripts/build.ts",
     "build:mcp-app": "vite build --config mcp-app/vite.config.js",
+    "build:mcp-app:watch": "vite build --watch --config mcp-app/vite.config.js",
+    "dev:server": "tsx watch --no-warnings src/index.ts",
+    "dev:docker": "run-p dev:server build:mcp-app:watch",
     "build:dev": "tsx src/scripts/build.ts --dev",
     "build:watch": "tsx src/scripts/build.ts --dev --watch",
     "dev": "tsx watch --env-file=.env --no-warnings src/index.ts",

@@ -30,6 +30,9 @@ npm run build:mcp-app
 |------|-------------|
 | `query-datasource` | Interactive chart (bar, line, pie) or data grid with column/axis selection |
 | `get-view-data` | Same chart/grid UI; data is parsed from CSV |
+| `list-datasources` | Same chart/grid UI; datasource list (name, id, projectName, description) |
+| `get-datasource-metadata` | Same chart/grid UI; field metadata (name, dataType, columnClass, etc.) |
+| `search-content` | Same chart/grid UI; content with usage (Datasource Name, Total Views) |
 
 ## Data Format
 

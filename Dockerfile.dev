@@ -3,5 +3,7 @@ WORKDIR /app
 RUN npm install -g tsx
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
-# src/ and build/ will be volume-mounted at runtime
-CMD ["tsx", "watch", "--no-warnings", "src/index.ts"]
+# src/, build/, mcp-app/ volume-mounted at runtime
+COPY scripts/dev-docker.sh /app/scripts/
+RUN chmod +x /app/scripts/dev-docker.sh
+CMD ["/app/scripts/dev-docker.sh"]

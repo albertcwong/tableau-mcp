@@ -111,6 +111,18 @@ This tool searches across all supported content types for objects relevant to th
         },
         constrainSuccessResult: (items) =>
           constrainSearchContent({ items, boundedContext: configWithOverrides.boundedContext }),
+        getSuccessResult: (items) => {
+          const rows = items.map((item) => ({
+            Name: item.title ?? item.caption ?? '',
+            'Total Views': item.totalViewCount ?? 0,
+          }));
+          const columns = [{ name: 'Name' }, { name: 'Total Views' }];
+          return {
+            isError: false,
+            content: [{ type: 'text' as const, text: JSON.stringify(items) }],
+            structuredContent: { columns, rows },
+          };
+        },
         productTelemetryBase: createProductTelemetryBase(config, authInfo),
       });
     },

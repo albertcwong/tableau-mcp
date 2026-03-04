@@ -7,17 +7,87 @@
   <script type="module" src="./mcp-app.ts"></script>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: system-ui, sans-serif; padding: 12px; }
-    .toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-    select, button { padding: 6px 12px; font-size: 14px; }
-    .chart-container { position: relative; height: 300px; }
-    .empty { color: #666; padding: 24px; text-align: center; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; }
-    th { background: #f5f5f5; }
-    .view-toggle { display: flex; gap: 4px; margin-bottom: 8px; }
-    .view-toggle button { flex: 1; }
-    .view-toggle button.active { background: #0066cc; color: white; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      padding: 16px;
+      background: #f8fafc;
+      color: #1e293b;
+    }
+    .view-toggle {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .view-toggle button {
+      flex: 1;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: transparent;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .view-toggle button:hover { background: #f1f5f9; color: #334155; }
+    .view-toggle button.active {
+      background: #0f172a;
+      color: white;
+      border-color: #0f172a;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .toolbar select {
+      padding: 8px 12px;
+      font-size: 13px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      background: white;
+      color: #334155;
+      min-width: 120px;
+    }
+    .chart-container {
+      position: relative;
+      height: 360px;
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .empty {
+      color: #94a3b8;
+      padding: 32px;
+      text-align: center;
+      font-size: 14px;
+    }
+    .table-wrapper {
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: #475569;
+    }
+    tr:hover { background: #f8fafc; }
   </style>
 </head>
 <body>
@@ -37,7 +107,7 @@
   <div class="chart-container" id="chart-container">
     <canvas id="chart"></canvas>
   </div>
-  <div id="table-container" style="display:none; overflow-x: auto;"></div>
-  <div class="empty" id="empty">Waiting for data from query-datasource or get-view-data...</div>
+  <div id="table-container" class="table-wrapper" style="display:none; overflow-x: auto;"></div>
+  <div class="empty" id="empty">Waiting for data from search-content, query-datasource, get-view-data, list-datasources, or get-datasource-metadata...</div>
 </body>
 </html>
