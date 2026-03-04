@@ -2,6 +2,7 @@
 
 import { build, BuildOptions, context } from 'esbuild';
 import { chmod, mkdir, rm } from 'fs/promises';
+import { spawn } from 'child_process';
 
 const dev = process.argv.includes('--dev');
 const watch = process.argv.includes('--watch');
@@ -61,6 +62,15 @@ async function buildOnce(): Promise<void> {
   }
 
   await chmod('./build/index.js', '755');
+
+  console.log('🏗️ Building MCP Apps UI...');
+  await new Promise<void>((resolve, reject) => {
+    const proc = spawn('npm', ['run', 'build:mcp-app'], {
+      stdio: 'inherit',
+      cwd: process.cwd(),
+    });
+    proc.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`build:mcp-app exited ${code}`))));
+  });
 
   if (watch) {
     console.log('[watch] build finished');

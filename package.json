@@ -24,6 +24,7 @@
   },
   "scripts": {
     "build": "tsx src/scripts/build.ts",
+    "build:mcp-app": "vite build --config mcp-app/vite.config.js",
     "build:dev": "tsx src/scripts/build.ts --dev",
     "build:watch": "tsx src/scripts/build.ts --dev --watch",
     "dev": "tsx watch --env-file=.env --no-warnings src/index.ts",
@@ -59,6 +60,8 @@
     "docs:start": "npm run start --prefix docs"
   },
   "dependencies": {
+    "@modelcontextprotocol/ext-apps": "^1.1.2",
+    "chart.js": "^4.4.0",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "@zodios/core": "^10.9.6",
     "cors": "^2.8.5",
@@ -72,6 +75,8 @@
     "zod-validation-error": "^4.0.1"
   },
   "devDependencies": {
+    "vite": "^6.0.0",
+    "vite-plugin-singlefile": "^2.3.0",
     "@anthropic-ai/mcpb": "^1.0.0",
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.25.1",

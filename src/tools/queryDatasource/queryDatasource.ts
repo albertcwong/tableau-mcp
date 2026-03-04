@@ -212,6 +212,18 @@ export const getQueryDatasourceTool = (
             result: queryOutput,
           };
         },
+        getSuccessResult: (queryOutput) => {
+          const data = queryOutput.data ?? [];
+          const columns =
+            data[0] && typeof data[0] === 'object' && !Array.isArray(data[0])
+              ? Object.keys(data[0]).map((name) => ({ name }))
+              : [];
+          return {
+            isError: false,
+            content: [{ type: 'text' as const, text: JSON.stringify(queryOutput) }],
+            structuredContent: { columns, rows: data },
+          };
+        },
         getErrorText: (error: QueryDatasourceError) => {
           switch (error.type) {
             case 'feature-disabled':

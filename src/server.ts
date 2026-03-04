@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { InitializeRequest, SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
 import pkg from '../package.json';
+import { getMcpAppMeta, isMcpAppsEnabled, registerMcpAppResource } from './mcpApps.js';
 import { setLogLevel } from './logging/log.js';
 import { TableauAuthInfo } from './server/oauth/schemas.js';
 import { Tool } from './tools/tool.js';
@@ -9,6 +10,8 @@ import { toolNames } from './tools/toolName.js';
 import { toolFactories } from './tools/tools.js';
 import { getConfigWithOverrides } from './utils/mcpSiteSettings';
 import { Provider } from './utils/provider.js';
+
+const MCP_APP_TOOLS = ['query-datasource', 'get-view-data'] as const;
 
 export const serverName = 'tableau-mcp';
 export const serverVersion = pkg.version;
@@ -54,6 +57,11 @@ export class Server extends McpServer {
   }
 
   registerTools = async (authInfo?: TableauAuthInfo): Promise<void> => {
+    const mcpAppsEnabled = isMcpAppsEnabled();
+    if (mcpAppsEnabled) {
+      registerMcpAppResource(this);
+    }
+
     for (const {
       name,
       description,
@@ -61,12 +69,19 @@ export class Server extends McpServer {
       annotations,
       callback,
     } of await this._getToolsToRegister(authInfo)) {
+      let resolvedAnnotations = await Provider.from(annotations);
+      if (
+        mcpAppsEnabled &&
+        (MCP_APP_TOOLS as readonly string[]).includes(name)
+      ) {
+        resolvedAnnotations = { ...resolvedAnnotations, ...getMcpAppMeta() };
+      }
       this.registerTool(
         name,
         {
           description: await Provider.from(description),
           inputSchema: await Provider.from(paramsSchema),
-          annotations: await Provider.from(annotations),
+          annotations: resolvedAnnotations,
         },
         await Provider.from(callback),
       );

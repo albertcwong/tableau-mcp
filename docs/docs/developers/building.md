@@ -103,6 +103,10 @@ docker compose -f docker-compose.dev.yml build tableau-mcp-ta
 Each service uses its own env file (`.env.embark`, `.env.cloud`, `.env.ta`) and port (3927, 3928,
 3929).
 
+## MCP Apps UI
+
+The build includes an interactive data explorer UI for `query-datasource` and `get-view-data`. It is built automatically as part of `npm run build`. See [MCP Apps](../configuration/mcp-config/mcp-apps.md) for details.
+
 ## Run with Heroku
 
 See [Deploy to Heroku](../extras/deploy-heroku.md) for new experimental Heroku support.

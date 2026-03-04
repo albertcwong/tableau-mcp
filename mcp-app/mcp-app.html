@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tableau Data Explorer</title>
+  <script type="module" src="./mcp-app.ts"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; padding: 12px; }
+    .toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    select, button { padding: 6px 12px; font-size: 14px; }
+    .chart-container { position: relative; height: 300px; }
+    .empty { color: #666; padding: 24px; text-align: center; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; }
+    th { background: #f5f5f5; }
+    .view-toggle { display: flex; gap: 4px; margin-bottom: 8px; }
+    .view-toggle button { flex: 1; }
+    .view-toggle button.active { background: #0066cc; color: white; }
+  </style>
+</head>
+<body>
+  <div class="view-toggle">
+    <button id="btn-chart" class="active">Chart</button>
+    <button id="btn-table">Table</button>
+  </div>
+  <div class="toolbar">
+    <select id="chart-type">
+      <option value="bar">Bar</option>
+      <option value="line">Line</option>
+      <option value="pie">Pie</option>
+    </select>
+    <select id="x-axis"></select>
+    <select id="y-axis"></select>
+  </div>
+  <div class="chart-container" id="chart-container">
+    <canvas id="chart"></canvas>
+  </div>
+  <div id="table-container" style="display:none; overflow-x: auto;"></div>
+  <div class="empty" id="empty">Waiting for data from query-datasource or get-view-data...</div>
+</body>
+</html>
