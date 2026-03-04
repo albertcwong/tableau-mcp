@@ -76,6 +76,33 @@ The project includes a template file `config.docker.json` you can use as an exam
 Remember to build the Docker image again whenever you pull the latest repo changes. Also you'll need
 to relaunch your AI tool so it starts using the updated image.
 
+### Docker development (Compose)
+
+For local development with hot-reload, use `docker-compose.dev.yml`:
+
+```bash
+# Build and start all services
+npm run docker:dev
+# or
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Rebuild commands:
+
+```bash
+# Rebuild images (no start)
+docker compose -f docker-compose.dev.yml build
+
+# Full rebuild without cache
+docker compose -f docker-compose.dev.yml build --no-cache
+
+# Rebuild a specific service
+docker compose -f docker-compose.dev.yml build tableau-mcp-ta
+```
+
+Each service uses its own env file (`.env.embark`, `.env.cloud`, `.env.ta`) and port (3927, 3928,
+3929).
+
 ## Run with Heroku
 
 See [Deploy to Heroku](../extras/deploy-heroku.md) for new experimental Heroku support.
