@@ -1,10 +1,13 @@
 import { Zodios } from '@zodios/core';
 
+import { getStringResponseHeader } from '../../../utils/axios.js';
 import { AxiosRequestConfig } from '../../../utils/axios.js';
 import { workbooksApis } from '../apis/workbooksApi.js';
 import { Credentials } from '../types/credentials.js';
 import { Pagination } from '../types/pagination.js';
 import { Workbook } from '../types/workbook.js';
+import { buildPublishMultipartBody, escapeXml } from '../utils/publishMultipart.js';
+import { parsePublishResponseXml } from '../utils/parsePublishResponse.js';
 import AuthenticatedMethods from './authenticatedMethods.js';
 
 /**
@@ -18,6 +21,31 @@ export default class WorkbooksMethods extends AuthenticatedMethods<typeof workbo
   constructor(baseUrl: string, creds: Credentials, axiosConfig: AxiosRequestConfig) {
     super(new Zodios(baseUrl, workbooksApis, { axiosConfig }), creds);
   }
+
+  /**
+   * Downloads a workbook as .twbx. Required scope: tableau:workbooks:download
+   */
+  downloadWorkbookContent = async ({
+    siteId,
+    workbookId,
+    includeExtract = true,
+  }: {
+    siteId: string;
+    workbookId: string;
+    includeExtract?: boolean;
+  }): Promise<{ data: ArrayBuffer; filename: string }> => {
+    const baseUrl = this._apiClient.axios.defaults.baseURL ?? '';
+    const qs = includeExtract ? '' : '?includeExtract=False';
+    const url = `${String(baseUrl).replace(/\/$/, '')}/sites/${siteId}/workbooks/${workbookId}/content${qs}`;
+    const res = await this._apiClient.axios.get<ArrayBuffer>(url, {
+      responseType: 'arraybuffer',
+      ...this.authHeader,
+    });
+    const cd = getStringResponseHeader(res.headers, 'content-disposition');
+    const filename =
+      cd.match(/filename="([^"]+)"/)?.[1] ?? cd.match(/filename=([^;]+)/)?.[1]?.trim() ?? 'workbook.twbx';
+    return { data: res.data, filename };
+  };
 
   /**
    * Returns information about the specified workbook, including information about views and tags.
@@ -74,5 +102,41 @@ export default class WorkbooksMethods extends AuthenticatedMethods<typeof workbo
       pagination: response.pagination,
       workbooks: response.workbooks.workbook ?? [],
     };
+  };
+
+  /**
+   * Publishes a workbook. Required scope: tableau:workbooks:create
+   */
+  publishWorkbook = async ({
+    siteId,
+    projectId,
+    name,
+    contentBase64,
+    overwrite = false,
+  }: {
+    siteId: string;
+    projectId: string;
+    name: string;
+    contentBase64: string;
+    overwrite?: boolean;
+  }): Promise<Record<string, string>> => {
+    const payload = `<tsRequest><workbook name="${escapeXml(name)}" showTabs="true"><project id="${escapeXml(projectId)}"/></workbook></tsRequest>`;
+    const { body, boundary } = buildPublishMultipartBody({
+      requestPayload: payload,
+      filePartName: 'tableau_workbook',
+      filename: name.endsWith('.twbx') ? name : `${name}.twbx`,
+      fileContent: Buffer.from(contentBase64, 'base64'),
+    });
+    const baseUrl = this._apiClient.axios.defaults.baseURL ?? '';
+    const url = `${String(baseUrl).replace(/\/$/, '')}/sites/${siteId}/workbooks${overwrite ? '?overwrite=true' : ''}`;
+    const res = await this._apiClient.axios.post<string>(url, body, {
+      ...this.authHeader,
+      headers: {
+        ...this.authHeader.headers,
+        'Content-Type': `multipart/mixed; boundary=${boundary}`,
+      },
+      responseType: 'text',
+    });
+    return parsePublishResponseXml(res.data);
   };
 }

@@ -63,6 +63,8 @@ export class Server extends McpServer {
   }
 
   registerTools = async (authInfo?: TableauAuthInfo): Promise<void> => {
+    const toolsToRegister = await this._getToolsToRegister(authInfo);
+
     // Always register the ui:// resource so resources/read works. Tools advertise _meta.ui.resourceUri;
     // the agent calls resources/read for that URI. If we don't register, resources capability is never
     // added and read_resource fails with "Server does not support resources".
@@ -74,7 +76,7 @@ export class Server extends McpServer {
       paramsSchema,
       annotations,
       callback,
-    } of await this._getToolsToRegister(authInfo)) {
+    } of toolsToRegister) {
       const resolvedAnnotations = await Provider.from(annotations);
       // Always add _meta.ui.resourceUri for MCP App tools so agent's tool_ui_map is populated.
       // Resource registration is conditional (only when build file exists).

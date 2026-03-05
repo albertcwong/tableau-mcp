@@ -63,6 +63,7 @@
     "docs:start": "npm run start --prefix docs"
   },
   "dependencies": {
+    "adm-zip": "^0.5.16",
     "@modelcontextprotocol/ext-apps": "^1.1.2",
     "chart.js": "^4.4.0",
     "@modelcontextprotocol/sdk": "^1.26.0",

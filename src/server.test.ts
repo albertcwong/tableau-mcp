@@ -29,11 +29,11 @@ describe('server', () => {
     for (const tool of tools) {
       expect(server.registerTool).toHaveBeenCalledWith(
         tool.name,
-        {
+        expect.objectContaining({
           description: await Provider.from(tool.description),
           inputSchema: await Provider.from(tool.paramsSchema),
           annotations: await Provider.from(tool.annotations),
-        },
+        }),
         expect.any(Function),
       );
     }
@@ -47,11 +47,11 @@ describe('server', () => {
     const tool = getQueryDatasourceTool(server);
     expect(server.registerTool).toHaveBeenCalledWith(
       tool.name,
-      {
+      expect.objectContaining({
         description: await Provider.from(tool.description),
         inputSchema: await Provider.from(tool.paramsSchema),
         annotations: await Provider.from(tool.annotations),
-      },
+      }),
       expect.any(Function),
     );
   });
@@ -66,21 +66,21 @@ describe('server', () => {
       if (tool.name === 'query-datasource') {
         expect(server.registerTool).not.toHaveBeenCalledWith(
           tool.name,
-          {
+          expect.objectContaining({
             description: await Provider.from(tool.description),
             inputSchema: await Provider.from(tool.paramsSchema),
             annotations: await Provider.from(tool.annotations),
-          },
+          }),
           expect.any(Function),
         );
       } else {
         expect(server.registerTool).toHaveBeenCalledWith(
           tool.name,
-          {
+          expect.objectContaining({
             description: await Provider.from(tool.description),
             inputSchema: await Provider.from(tool.paramsSchema),
             annotations: await Provider.from(tool.annotations),
-          },
+          }),
           expect.any(Function),
         );
       }

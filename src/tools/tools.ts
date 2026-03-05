@@ -1,4 +1,13 @@
 import { getSearchContentTool } from './contentExploration/searchContent.js';
+import { getDownloadDatasourceTool } from './download/downloadDatasource.js';
+import { getDownloadFlowTool } from './download/downloadFlow.js';
+import { getDownloadWorkbookTool } from './download/downloadWorkbook.js';
+import { getPublishDatasourceTool } from './publish/publishDatasource.js';
+import { getPublishFlowTool } from './publish/publishFlow.js';
+import { getPublishWorkbookTool } from './publish/publishWorkbook.js';
+import { getInspectDatasourceFileTool } from './inspect/inspectDatasourceFile.js';
+import { getInspectFlowFileTool } from './inspect/inspectFlowFile.js';
+import { getInspectWorkbookFileTool } from './inspect/inspectWorkbookFile.js';
 import { getGetDatasourceMetadataTool } from './getDatasourceMetadata/getDatasourceMetadata.js';
 import { getListDatasourcesTool } from './listDatasources/listDatasources.js';
 import { getGeneratePulseInsightBriefTool } from './pulse/generateInsightBrief/generatePulseInsightBriefTool.js';
@@ -18,7 +27,16 @@ import { getGetWorkbookTool } from './workbooks/getWorkbook.js';
 import { getListWorkbooksTool } from './workbooks/listWorkbooks.js';
 
 export const toolFactories = [
+  getDownloadDatasourceTool,
+  getDownloadFlowTool,
+  getDownloadWorkbookTool,
   getGetDatasourceMetadataTool,
+  getInspectDatasourceFileTool,
+  getInspectFlowFileTool,
+  getInspectWorkbookFileTool,
+  getPublishDatasourceTool,
+  getPublishFlowTool,
+  getPublishWorkbookTool,
   getListDatasourcesTool,
   getQueryDatasourceTool,
   getListAllPulseMetricDefinitionsTool,

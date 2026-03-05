@@ -29,7 +29,13 @@ type JwtScopes =
   | 'tableau:insights:read'
   | 'tableau:views:download'
   | 'tableau:insight_brief:create'
-  | 'tableau:mcp_site_settings:read';
+  | 'tableau:mcp_site_settings:read'
+  | 'tableau:workbooks:download'
+  | 'tableau:datasources:create'
+  | 'tableau:workbooks:create'
+  | 'tableau:flows:download'
+  | 'tableau:flows:create'
+  | 'tableau:file_uploads:create';
 
 export type RestApiArgs = {
   config: Config;
