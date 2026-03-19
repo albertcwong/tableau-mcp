@@ -29,8 +29,10 @@ export async function startExpressServer({
 }): Promise<{ url: string; app: express.Application; server: http.Server }> {
   const app = express();
 
-  app.use(express.json());
-  app.use(express.urlencoded());
+  // Publish tools send contentBase64 (workbook/datasource/flow); default 100kb is too small
+  const bodyLimit = '50mb';
+  app.use(express.json({ limit: bodyLimit }));
+  app.use(express.urlencoded({ limit: bodyLimit }));
 
   app.use(
     cors({
@@ -170,12 +172,17 @@ async function connect(
   logLevel: LoggingLevel,
   authInfo: TableauAuthInfo | undefined,
 ): Promise<void> {
-  await server.registerTools(authInfo);
   server.registerRequestHandlers();
-
+  // Register tools before the transport is attached so clients can call tools/list
+  // immediately after initialize, even if they never send notifications/initialized.
+  await server.registerTools(authInfo);
   await server.connect(transport);
   setLogLevel(server, logLevel);
 }
+
+export const exportedForTesting = {
+  connect,
+};
 
 async function methodNotAllowed(_req: Request, res: Response): Promise<void> {
   res.writeHead(405).end(
