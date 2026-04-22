@@ -64,13 +64,16 @@ async function buildOnce(): Promise<void> {
   await chmod('./build/index.js', '755');
 
   console.log('🏗️ Building MCP Apps UI...');
-  await new Promise<void>((resolve, reject) => {
-    const proc = spawn('npm', ['run', 'build:mcp-app'], {
-      stdio: 'inherit',
-      cwd: process.cwd(),
+  for (const entry of ['mcp-app', 'chart-explorer', 'content-browser']) {
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn('npm', ['run', 'build:mcp-app'], {
+        stdio: 'inherit',
+        cwd: process.cwd(),
+        env: { ...process.env, MCP_APP_ENTRY: entry },
+      });
+      proc.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`build:mcp-app (${entry}) exited ${code}`))));
     });
-    proc.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`build:mcp-app exited ${code}`))));
-  });
+  }
 
   if (watch) {
     console.log('[watch] build finished');

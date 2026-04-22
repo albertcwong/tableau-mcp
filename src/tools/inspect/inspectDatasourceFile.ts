@@ -8,6 +8,7 @@ import { Server } from '../../server.js';
 import { getTableauAuthInfo } from '../../server/oauth/getTableauAuthInfo.js';
 import { createProductTelemetryBase } from '../../telemetry/productTelemetry/telemetryForwarder.js';
 import { getConfigWithOverrides } from '../../utils/mcpSiteSettings.js';
+import { readDownloadedFile } from '../../utils/downloadTempFile.js';
 import { resourceAccessChecker } from '../resourceAccessChecker.js';
 import { Tool } from '../tool.js';
 import {
@@ -18,6 +19,7 @@ import {
 const paramsSchema = {
   datasourceId: z.string().optional(),
   contentBase64: z.string().optional(),
+  filePath: z.string().optional(),
   includeExtract: z.boolean().default(true).optional(),
 };
 
@@ -26,17 +28,17 @@ export const getInspectDatasourceFileTool = (server: Server): Tool<typeof params
     server,
     name: 'inspect-datasource-file',
     description:
-      'Parses a datasource file (.tdsx or .tds) and returns structured inspection: connections, columns. When using datasourceId, pass includeExtract: false for faster structure-only fetch.',
+      'Parses a datasource file (.tdsx or .tds) and returns structured inspection: connections, columns. Provide datasourceId, filePath (from download-datasource), or contentBase64. When using datasourceId, pass includeExtract: false for faster structure-only fetch.',
     paramsSchema,
     annotations: { title: 'Inspect Datasource File', readOnlyHint: true, openWorldHint: false },
     callback: async (
-      { datasourceId, contentBase64, includeExtract },
+      { datasourceId, contentBase64, filePath, includeExtract },
       { requestId, sessionId, authInfo, signal },
     ): Promise<CallToolResult> => {
-      if (!datasourceId && !contentBase64) {
+      if (!datasourceId && !contentBase64 && !filePath) {
         return {
           isError: true,
-          content: [{ type: 'text', text: 'One of datasourceId or contentBase64 is required.' }],
+          content: [{ type: 'text', text: 'One of datasourceId, filePath, or contentBase64 is required.' }],
         };
       }
       const config = getConfig();
@@ -53,11 +55,16 @@ export const getInspectDatasourceFileTool = (server: Server): Tool<typeof params
         requestId,
         sessionId,
         authInfo,
-        args: { datasourceId, contentBase64, includeExtract },
+        args: { datasourceId, contentBase64, filePath, includeExtract },
         productTelemetryBase: createProductTelemetryBase(config, authInfo),
         callback: async () => {
           let xml: string;
-          if (contentBase64) {
+          if (filePath) {
+            const buf = await readDownloadedFile(filePath);
+            xml = buf[0] === 0x50 && buf[1] === 0x4b
+              ? extractInnerXml(buf, '.tds')
+              : buf.toString('utf8');
+          } else if (contentBase64) {
             const buf = Buffer.from(contentBase64, 'base64');
             xml = buf[0] === 0x50 && buf[1] === 0x4b
               ? extractInnerXml(buf, '.tds')

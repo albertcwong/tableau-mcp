@@ -6,11 +6,11 @@ sidebar_position: 6
 
 The Tableau MCP server supports [MCP Apps](https://modelcontextprotocol.io/docs/extensions/apps), enabling interactive charts and data grids in MCP-compatible hosts (Claude, ChatGPT, custom chat clients).
 
-When enabled, `query-datasource` and `get-view-data` tools expose a `ui://` resource. Hosts that support MCP Apps can render the data as an interactive chart or table instead of plain text.
+When enabled, tools expose `ui://` resources. Hosts that support MCP Apps render the data as interactive UIs instead of plain text.
 
 ## Enabling MCP Apps
 
-MCP Apps are **enabled automatically** when the server is built from source. The build produces `build/mcp-app/mcp-app.html`, which is served as the UI resource.
+MCP Apps are **enabled automatically** when the server is built from source. The build produces `build/mcp-app/chart-explorer.html` and `build/mcp-app/content-browser.html`.
 
 To build with MCP Apps:
 
@@ -26,13 +26,13 @@ npm run build:mcp-app
 
 ## Supported Tools
 
-| Tool | UI Behavior |
-|------|-------------|
-| `query-datasource` | Interactive chart (bar, line, pie) or data grid with column/axis selection |
-| `get-view-data` | Same chart/grid UI; data is parsed from CSV |
-| `list-datasources` | Same chart/grid UI; datasource list (name, id, projectName, description) |
-| `get-datasource-metadata` | Same chart/grid UI; field metadata (name, dataType, columnClass, etc.) |
-| `search-content` | Same chart/grid UI; content with usage (Datasource Name, Total Views) |
+| Tool | UI Resource | UI Behavior |
+|------|-------------|-------------|
+| `query-datasource` | `chart-explorer.html` | Interactive chart (bar, line, pie) or data grid with column/axis selection |
+| `get-view-data` | `chart-explorer.html` | Same chart/grid UI; data is parsed from CSV |
+| `list-datasources` | `content-browser.html` | Table only; datasource list (name, id, projectName, description) |
+| `get-datasource-metadata` | `content-browser.html` | Table only; field metadata (name, dataType, columnClass, etc.) |
+| `search-content` | `content-browser.html` | Table only; content with usage (Datasource Name, Total Views) |
 
 ## Data Format
 
@@ -55,7 +55,7 @@ The UI receives this via the host's `ui/notifications/tool-result` when the LLM 
 Your MCP client must support MCP Apps to render the UI:
 
 - Declare support for `text/html;profile=mcp-app` in capabilities
-- Fetch the `ui://tableau-mcp/data-explorer.html` resource when the tool has `_meta.ui.resourceUri`
+- Fetch the `ui://tableau-mcp/chart-explorer.html` or `ui://tableau-mcp/content-browser.html` resource when the tool has `_meta.ui.resourceUri`
 - Render the HTML in a sandboxed iframe
 - Pass tool results to the UI via notifications
 

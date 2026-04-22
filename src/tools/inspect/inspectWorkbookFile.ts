@@ -8,6 +8,7 @@ import { Server } from '../../server.js';
 import { getTableauAuthInfo } from '../../server/oauth/getTableauAuthInfo.js';
 import { createProductTelemetryBase } from '../../telemetry/productTelemetry/telemetryForwarder.js';
 import { getConfigWithOverrides } from '../../utils/mcpSiteSettings.js';
+import { readDownloadedFile } from '../../utils/downloadTempFile.js';
 import { resourceAccessChecker } from '../resourceAccessChecker.js';
 import { Tool } from '../tool.js';
 import {
@@ -18,6 +19,7 @@ import {
 const paramsSchema = {
   workbookId: z.string().optional(),
   contentBase64: z.string().optional(),
+  filePath: z.string().optional(),
   includeExtract: z.boolean().default(true).optional(),
 };
 
@@ -26,17 +28,17 @@ export const getInspectWorkbookFileTool = (server: Server): Tool<typeof paramsSc
     server,
     name: 'inspect-workbook-file',
     description:
-      'Parses a workbook file (.twbx or .twb) and returns structured inspection: sheets, dashboards, dataSources. When using workbookId, pass includeExtract: false for faster structure-only fetch.',
+      'Parses a workbook file (.twbx or .twb) and returns structured inspection: sheets, dashboards, dataSources. Provide workbookId, filePath (from download-workbook), or contentBase64. When using workbookId, pass includeExtract: false for faster structure-only fetch.',
     paramsSchema,
     annotations: { title: 'Inspect Workbook File', readOnlyHint: true, openWorldHint: false },
     callback: async (
-      { workbookId, contentBase64, includeExtract },
+      { workbookId, contentBase64, filePath, includeExtract },
       { requestId, sessionId, authInfo, signal },
     ): Promise<CallToolResult> => {
-      if (!workbookId && !contentBase64) {
+      if (!workbookId && !contentBase64 && !filePath) {
         return {
           isError: true,
-          content: [{ type: 'text', text: 'One of workbookId or contentBase64 is required.' }],
+          content: [{ type: 'text', text: 'One of workbookId, filePath, or contentBase64 is required.' }],
         };
       }
       const config = getConfig();
@@ -53,11 +55,16 @@ export const getInspectWorkbookFileTool = (server: Server): Tool<typeof paramsSc
         requestId,
         sessionId,
         authInfo,
-        args: { workbookId, contentBase64, includeExtract },
+        args: { workbookId, contentBase64, filePath, includeExtract },
         productTelemetryBase: createProductTelemetryBase(config, authInfo),
         callback: async () => {
           let xml: string;
-          if (contentBase64) {
+          if (filePath) {
+            const buf = await readDownloadedFile(filePath);
+            xml = buf[0] === 0x50 && buf[1] === 0x4b
+              ? extractInnerXml(buf, '.twb')
+              : buf.toString('utf8');
+          } else if (contentBase64) {
             const buf = Buffer.from(contentBase64, 'base64');
             xml = buf[0] === 0x50 && buf[1] === 0x4b
               ? extractInnerXml(buf, '.twb')

@@ -7,8 +7,10 @@ import { useRestApi } from '../../restApiInstance.js';
 import { Server } from '../../server.js';
 import { getTableauAuthInfo } from '../../server/oauth/getTableauAuthInfo.js';
 import { createProductTelemetryBase } from '../../telemetry/productTelemetry/telemetryForwarder.js';
+import { DownloadResult, processDownload } from '../../utils/downloadTempFile.js';
 import { getConfigWithOverrides } from '../../utils/mcpSiteSettings.js';
 import { Tool } from '../tool.js';
+import { formatDownloadResult } from './downloadResultFormat.js';
 
 const paramsSchema = { flowId: z.string() };
 
@@ -17,7 +19,7 @@ export const getDownloadFlowTool = (server: Server): Tool<typeof paramsSchema> =
     server,
     name: 'download-flow',
     description:
-      'Downloads a flow as .tflx (packaged flow). Use when the agent needs to download a flow for backup, migration, or inspection. Returns JSON with filename and contentBase64. Required param: flowId (LUID).',
+      'Downloads a flow as .tflx (packaged flow). For small files, returns contentBase64 inline. For large files, returns filePath to pass to get-downloaded-file, inspect-flow-file, or publish-flow. Required param: flowId (LUID).',
     paramsSchema,
     annotations: { title: 'Download Flow', readOnlyHint: true, openWorldHint: false },
     callback: async (
@@ -34,7 +36,7 @@ export const getDownloadFlowTool = (server: Server): Tool<typeof paramsSchema> =
       };
       await getConfigWithOverrides({ restApiArgs });
 
-      return await tool.logAndExecute<{ filename: string; contentBase64: string }>({
+      return await tool.logAndExecute<DownloadResult>({
         requestId,
         sessionId,
         authInfo,
@@ -50,9 +52,9 @@ export const getDownloadFlowTool = (server: Server): Tool<typeof paramsSchema> =
                 flowId,
               }),
           });
-          const contentBase64 = Buffer.from(data).toString('base64');
-          return new Ok({ filename, contentBase64 });
+          return new Ok(await processDownload(filename, data));
         },
+        getSuccessResult: (r: DownloadResult) => formatDownloadResult(r, 'flow'),
         constrainSuccessResult: (r) => ({ type: 'success' as const, result: r }),
       });
     },

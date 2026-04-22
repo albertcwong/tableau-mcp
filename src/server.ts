@@ -1,8 +1,11 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { InitializeRequest, SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import {
+  registerAppTool,
+} from '@modelcontextprotocol/ext-apps/server';
 
 import pkg from '../package.json';
-import { getMcpAppMeta, registerMcpAppResource } from './mcpApps.js';
+import { getMcpAppMeta, isMcpAppsEnabled, registerMcpAppResource, TOOL_APP_URIS } from './mcpApps.js';
 import { setLogLevel } from './logging/log.js';
 import { TableauAuthInfo } from './server/oauth/schemas.js';
 import { Tool } from './tools/tool.js';
@@ -10,14 +13,6 @@ import { toolNames } from './tools/toolName.js';
 import { toolFactories } from './tools/tools.js';
 import { getConfigWithOverrides } from './utils/mcpSiteSettings';
 import { Provider } from './utils/provider.js';
-
-const MCP_APP_TOOLS = [
-  'query-datasource',
-  'get-view-data',
-  'list-datasources',
-  'get-datasource-metadata',
-  'search-content',
-] as const;
 
 export const serverName = 'tableau-mcp';
 export const serverVersion = pkg.version;
@@ -64,11 +59,13 @@ export class Server extends McpServer {
 
   registerTools = async (authInfo?: TableauAuthInfo): Promise<void> => {
     const toolsToRegister = await this._getToolsToRegister(authInfo);
+    const mcpAppsEnabled = isMcpAppsEnabled();
 
-    // Always register the ui:// resource so resources/read works. Tools advertise _meta.ui.resourceUri;
-    // the agent calls resources/read for that URI. If we don't register, resources capability is never
-    // added and read_resource fails with "Server does not support resources".
-    registerMcpAppResource(this);
+    // Register app resources unconditionally when the built HTML files exist.
+    // Clients that don't support MCP Apps simply ignore _meta and the ui:// resource.
+    if (mcpAppsEnabled) {
+      registerMcpAppResource(this);
+    }
 
     for (const {
       name,
@@ -78,21 +75,19 @@ export class Server extends McpServer {
       callback,
     } of toolsToRegister) {
       const resolvedAnnotations = await Provider.from(annotations);
-      // Always add _meta.ui.resourceUri for MCP App tools so agent's tool_ui_map is populated.
-      // Resource registration is conditional (only when build file exists).
-      const toolMeta = (MCP_APP_TOOLS as readonly string[]).includes(name)
-        ? getMcpAppMeta()._meta
-        : undefined;
-      this.registerTool(
-        name,
-        {
-          description: await Provider.from(description),
-          inputSchema: await Provider.from(paramsSchema),
-          annotations: resolvedAnnotations,
-          _meta: toolMeta,
-        },
-        await Provider.from(callback),
-      );
+      const meta = mcpAppsEnabled ? getMcpAppMeta(name) : undefined;
+      const config = {
+        description: await Provider.from(description),
+        inputSchema: await Provider.from(paramsSchema),
+        annotations: resolvedAnnotations,
+        ...(meta && { _meta: meta._meta }),
+      };
+      const cb = await Provider.from(callback);
+      if (meta && TOOL_APP_URIS[name]) {
+        registerAppTool(this, name, config as Parameters<typeof registerAppTool>[2], cb as Parameters<typeof registerAppTool>[3]);
+      } else {
+        this.registerTool(name, config, cb);
+      }
     }
   };
 

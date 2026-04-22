@@ -1,3 +1,9 @@
+/** Extracts uploadSessionId from Initiate File Upload response. */
+export function parseFileUploadResponseXml(xml: string): string | undefined {
+  const m = xml.match(/<fileUpload\s+[^>]*uploadSessionId=["']([^"']+)["']/);
+  return m?.[1];
+}
+
 /** Extracts root element attributes from Tableau publish response XML. */
 export function parsePublishResponseXml(xml: string): Record<string, string> {
   const rootMatch = xml.match(/<(workbook|datasource|flow)\s+([^>]+)/);

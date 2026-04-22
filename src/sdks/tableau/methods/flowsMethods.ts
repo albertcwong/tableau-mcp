@@ -3,17 +3,29 @@ import { Zodios } from '@zodios/core';
 import { getStringResponseHeader } from '../../../utils/axios.js';
 import { AxiosRequestConfig } from '../../../utils/axios.js';
 import { flowsApis } from '../apis/flowsApi.js';
-import { buildPublishMultipartBody, escapeXml } from '../utils/publishMultipart.js';
+import {
+  buildPublishMultipartBody,
+  buildPublishRequestOnlyBody,
+  escapeXml,
+  APPEND_CHUNK_MAX_BYTES,
+  SINGLE_CALL_PUBLISH_LIMIT_BYTES,
+} from '../utils/publishMultipart.js';
 import { parsePublishResponseXml } from '../utils/parsePublishResponse.js';
 import { Credentials } from '../types/credentials.js';
 import AuthenticatedMethods from './authenticatedMethods.js';
+import FileUploadsMethods from './fileUploadsMethods.js';
 
 /**
  * Flows methods of the Tableau Server REST API
  * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_flow.htm
  */
 export default class FlowsMethods extends AuthenticatedMethods<typeof flowsApis> {
-  constructor(baseUrl: string, creds: Credentials, axiosConfig: AxiosRequestConfig) {
+  constructor(
+    baseUrl: string,
+    creds: Credentials,
+    axiosConfig: AxiosRequestConfig,
+    private readonly _fileUploads: FileUploadsMethods,
+  ) {
     super(new Zodios(baseUrl, flowsApis, { axiosConfig }), creds);
   }
 
@@ -40,30 +52,87 @@ export default class FlowsMethods extends AuthenticatedMethods<typeof flowsApis>
   };
 
   /**
-   * Publishes a flow. Required scope: tableau:flows:create
+   * Publishes a flow. Required scope: tableau:flows:create.
+   * For contentBase64 >64MB uses multi-part upload (also needs tableau:file_uploads:create).
    */
   publishFlow = async ({
     siteId,
     projectId,
     name,
     contentBase64,
+    uploadSessionId,
     overwrite = false,
   }: {
     siteId: string;
     projectId: string;
     name: string;
-    contentBase64: string;
+    contentBase64?: string;
+    uploadSessionId?: string;
     overwrite?: boolean;
   }): Promise<Record<string, string>> => {
+    const filename = name.endsWith('.tflx') ? name : `${name}.tflx`;
+
+    if (uploadSessionId) {
+      return this._publishFlowWithSession({ siteId, projectId, name, uploadSessionId, overwrite });
+    }
+
+    const fileContent = Buffer.from(contentBase64!, 'base64');
+    if (fileContent.length > SINGLE_CALL_PUBLISH_LIMIT_BYTES) {
+      const sessionId = await this._fileUploads.initiateFileUpload({ siteId });
+      const chunks = Math.ceil(fileContent.length / APPEND_CHUNK_MAX_BYTES);
+      for (let i = 0; i < chunks; i++) {
+        const start = i * APPEND_CHUNK_MAX_BYTES;
+        const chunk = fileContent.subarray(start, Math.min(start + APPEND_CHUNK_MAX_BYTES, fileContent.length));
+        await this._fileUploads.appendToFileUpload({
+          siteId,
+          uploadSessionId: sessionId,
+          sequenceId: i + 1,
+          filename,
+          fileContent: chunk,
+        });
+      }
+      return this._publishFlowWithSession({ siteId, projectId, name, uploadSessionId: sessionId, overwrite });
+    }
+
     const payload = `<tsRequest><flow name="${escapeXml(name)}"><project id="${escapeXml(projectId)}"/></flow></tsRequest>`;
     const { body, boundary } = buildPublishMultipartBody({
       requestPayload: payload,
       filePartName: 'tableau_flow',
-      filename: name.endsWith('.tflx') ? name : `${name}.tflx`,
-      fileContent: Buffer.from(contentBase64, 'base64'),
+      filename,
+      fileContent,
     });
     const baseUrl = this._apiClient.axios.defaults.baseURL ?? '';
     const url = `${String(baseUrl).replace(/\/$/, '')}/sites/${siteId}/flows${overwrite ? '?overwrite=true' : ''}`;
+    const res = await this._apiClient.axios.post<string>(url, body, {
+      ...this.authHeader,
+      headers: {
+        ...this.authHeader.headers,
+        'Content-Type': `multipart/mixed; boundary=${boundary}`,
+      },
+      responseType: 'text',
+    });
+    return parsePublishResponseXml(res.data);
+  };
+
+  private _publishFlowWithSession = async ({
+    siteId,
+    projectId,
+    name,
+    uploadSessionId,
+    overwrite,
+  }: {
+    siteId: string;
+    projectId: string;
+    name: string;
+    uploadSessionId: string;
+    overwrite: boolean;
+  }): Promise<Record<string, string>> => {
+    const payload = `<tsRequest><flow name="${escapeXml(name)}"><project id="${escapeXml(projectId)}"/></flow></tsRequest>`;
+    const { body, boundary } = buildPublishRequestOnlyBody(payload);
+    const baseUrl = this._apiClient.axios.defaults.baseURL ?? '';
+    const params = new URLSearchParams({ uploadSessionId, flowType: 'tflx' });
+    if (overwrite) params.set('overwrite', 'true');
+    const url = `${String(baseUrl).replace(/\/$/, '')}/sites/${siteId}/flows?${params}`;
     const res = await this._apiClient.axios.post<string>(url, body, {
       ...this.authHeader,
       headers: {

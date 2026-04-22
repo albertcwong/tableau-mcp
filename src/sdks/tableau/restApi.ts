@@ -14,8 +14,10 @@ import {
 } from './methods/authenticationMethods.js';
 import ContentExplorationMethods from './methods/contentExplorationMethods.js';
 import DatasourcesMethods from './methods/datasourcesMethods.js';
+import FileUploadsMethods from './methods/fileUploadsMethods.js';
 import FlowsMethods from './methods/flowsMethods.js';
 import MetadataMethods from './methods/metadataMethods.js';
+import ProjectsMethods from './methods/projectsMethods.js';
 import PulseMethods from './methods/pulseMethods.js';
 import { AuthenticatedServerMethods, ServerMethods } from './methods/serverMethods.js';
 import SitesMethods from './methods/sitesMethods.js';
@@ -43,8 +45,10 @@ export class RestApi {
   private _authenticatedServerMethods?: AuthenticatedServerMethods;
   private _contentExplorationMethods?: ContentExplorationMethods;
   private _datasourcesMethods?: DatasourcesMethods;
+  private _fileUploadsMethods?: FileUploadsMethods;
   private _flowsMethods?: FlowsMethods;
   private _metadataMethods?: MetadataMethods;
+  private _projectsMethods?: ProjectsMethods;
   private _pulseMethods?: PulseMethods;
   private _serverMethods?: ServerMethods;
   private _sitesMethods?: SitesMethods;
@@ -146,22 +150,37 @@ export class RestApi {
 
   get datasourcesMethods(): DatasourcesMethods {
     if (!this._datasourcesMethods) {
-      this._datasourcesMethods = new DatasourcesMethods(this._baseUrl, this.creds, {
-        timeout: this._maxRequestTimeoutMs,
-        signal: this._signal,
-      });
+      this._datasourcesMethods = new DatasourcesMethods(
+        this._baseUrl,
+        this.creds,
+        { timeout: this._maxRequestTimeoutMs, signal: this._signal },
+        this.fileUploadsMethods,
+      );
       this._addInterceptors(this._baseUrl, this._datasourcesMethods.interceptors);
     }
 
     return this._datasourcesMethods;
   }
 
-  get flowsMethods(): FlowsMethods {
-    if (!this._flowsMethods) {
-      this._flowsMethods = new FlowsMethods(this._baseUrl, this.creds, {
+  get fileUploadsMethods(): FileUploadsMethods {
+    if (!this._fileUploadsMethods) {
+      this._fileUploadsMethods = new FileUploadsMethods(this._baseUrl, this.creds, {
         timeout: this._maxRequestTimeoutMs,
         signal: this._signal,
       });
+      this._addInterceptors(this._baseUrl, this._fileUploadsMethods.interceptors);
+    }
+    return this._fileUploadsMethods;
+  }
+
+  get flowsMethods(): FlowsMethods {
+    if (!this._flowsMethods) {
+      this._flowsMethods = new FlowsMethods(
+        this._baseUrl,
+        this.creds,
+        { timeout: this._maxRequestTimeoutMs, signal: this._signal },
+        this.fileUploadsMethods,
+      );
       this._addInterceptors(this._baseUrl, this._flowsMethods.interceptors);
     }
     return this._flowsMethods;
@@ -178,6 +197,18 @@ export class RestApi {
     }
 
     return this._metadataMethods;
+  }
+
+  get projectsMethods(): ProjectsMethods {
+    if (!this._projectsMethods) {
+      this._projectsMethods = new ProjectsMethods(this._baseUrl, this.creds, {
+        timeout: this._maxRequestTimeoutMs,
+        signal: this._signal,
+      });
+      this._addInterceptors(this._baseUrl, this._projectsMethods.interceptors);
+    }
+
+    return this._projectsMethods;
   }
 
   get pulseMethods(): PulseMethods {
@@ -268,10 +299,12 @@ export class RestApi {
 
   get workbooksMethods(): WorkbooksMethods {
     if (!this._workbooksMethods) {
-      this._workbooksMethods = new WorkbooksMethods(this._baseUrl, this.creds, {
-        timeout: this._maxRequestTimeoutMs,
-        signal: this._signal,
-      });
+      this._workbooksMethods = new WorkbooksMethods(
+        this._baseUrl,
+        this.creds,
+        { timeout: this._maxRequestTimeoutMs, signal: this._signal },
+        this.fileUploadsMethods,
+      );
       this._addInterceptors(this._baseUrl, this._workbooksMethods.interceptors);
     }
 

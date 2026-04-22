@@ -2,7 +2,9 @@ import { getSearchContentTool } from './contentExploration/searchContent.js';
 import { getDownloadDatasourceTool } from './download/downloadDatasource.js';
 import { getDownloadFlowTool } from './download/downloadFlow.js';
 import { getDownloadWorkbookTool } from './download/downloadWorkbook.js';
+import { getGetDownloadedFileTool } from './download/getDownloadedFile.js';
 import { getPublishDatasourceTool } from './publish/publishDatasource.js';
+import { getUpdateDatasourceDataTool } from './updateDatasourceData/updateDatasourceData.js';
 import { getPublishFlowTool } from './publish/publishFlow.js';
 import { getPublishWorkbookTool } from './publish/publishWorkbook.js';
 import { getInspectDatasourceFileTool } from './inspect/inspectDatasourceFile.js';
@@ -10,6 +12,7 @@ import { getInspectFlowFileTool } from './inspect/inspectFlowFile.js';
 import { getInspectWorkbookFileTool } from './inspect/inspectWorkbookFile.js';
 import { getGetDatasourceMetadataTool } from './getDatasourceMetadata/getDatasourceMetadata.js';
 import { getListDatasourcesTool } from './listDatasources/listDatasources.js';
+import { getListProjectsTool } from './listProjects/listProjects.js';
 import { getGeneratePulseInsightBriefTool } from './pulse/generateInsightBrief/generatePulseInsightBriefTool.js';
 import { getGeneratePulseMetricValueInsightBundleTool } from './pulse/generateMetricValueInsightBundle/generatePulseMetricValueInsightBundleTool.js';
 import { getListAllPulseMetricDefinitionsTool } from './pulse/listAllMetricDefinitions/listAllPulseMetricDefinitions.js';
@@ -30,14 +33,17 @@ export const toolFactories = [
   getDownloadDatasourceTool,
   getDownloadFlowTool,
   getDownloadWorkbookTool,
+  getGetDownloadedFileTool,
   getGetDatasourceMetadataTool,
   getInspectDatasourceFileTool,
   getInspectFlowFileTool,
   getInspectWorkbookFileTool,
   getPublishDatasourceTool,
+  getUpdateDatasourceDataTool,
   getPublishFlowTool,
   getPublishWorkbookTool,
   getListDatasourcesTool,
+  getListProjectsTool,
   getQueryDatasourceTool,
   getListAllPulseMetricDefinitionsTool,
   getListPulseMetricDefinitionsFromDefinitionIdsTool,

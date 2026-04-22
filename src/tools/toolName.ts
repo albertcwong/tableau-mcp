@@ -1,5 +1,6 @@
 export const toolNames = [
   'list-datasources',
+  'list-projects',
   'list-workbooks',
   'list-views',
   'query-datasource',
@@ -20,12 +21,14 @@ export const toolNames = [
   'download-workbook',
   'download-datasource',
   'download-flow',
+  'get-downloaded-file',
   'publish-workbook',
   'publish-datasource',
   'publish-flow',
   'inspect-workbook-file',
   'inspect-datasource-file',
   'inspect-flow-file',
+  'update-datasource-data',
 ] as const;
 export type ToolName = (typeof toolNames)[number];
 
@@ -34,6 +37,7 @@ export const toolGroupNames = [
   'workbook',
   'view',
   'flow',
+  'projects',
   'pulse',
   'content-exploration',
   'users',
@@ -49,6 +53,8 @@ export const toolGroups = {
     'download-datasource',
     'publish-datasource',
     'inspect-datasource-file',
+    'get-downloaded-file',
+    'update-datasource-data',
   ],
   workbook: [
     'list-workbooks',
@@ -59,6 +65,7 @@ export const toolGroups = {
   ],
   view: ['list-views', 'get-view-data', 'get-view-image'],
   flow: ['download-flow', 'publish-flow', 'inspect-flow-file'],
+  projects: ['list-projects'],
   pulse: [
     'list-all-pulse-metric-definitions',
     'list-pulse-metric-definitions-from-definition-ids',

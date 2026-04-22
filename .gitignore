@@ -20,3 +20,6 @@ tableau-mcp.mcpb
 *.zip
 
 tmp/
+.venv-hyper/
+.cursor/rules/do-not-edit-these-rules-from-mcp-gateway/
+.windsurf/rules/do-not-edit-these-rules-from-mcp-gateway/

@@ -7,9 +7,11 @@ import { useRestApi } from '../../restApiInstance.js';
 import { Server } from '../../server.js';
 import { getTableauAuthInfo } from '../../server/oauth/getTableauAuthInfo.js';
 import { createProductTelemetryBase } from '../../telemetry/productTelemetry/telemetryForwarder.js';
+import { DownloadResult, processDownload } from '../../utils/downloadTempFile.js';
 import { getConfigWithOverrides } from '../../utils/mcpSiteSettings.js';
 import { resourceAccessChecker } from '../resourceAccessChecker.js';
 import { Tool } from '../tool.js';
+import { formatDownloadResult } from './downloadResultFormat.js';
 
 const paramsSchema = {
   datasourceId: z.string(),
@@ -23,7 +25,7 @@ export const getDownloadDatasourceTool = (server: Server): Tool<typeof paramsSch
     server,
     name: 'download-datasource',
     description:
-      'Downloads a datasource as .tdsx. Use includeExtract: false for faster structure-only inspection. Returns JSON with filename and contentBase64. Required: datasourceId (LUID).',
+      'Downloads a datasource as .tdsx. Use includeExtract: false for faster structure-only download. For small files, returns contentBase64 inline. For large files, returns filePath to pass to get-downloaded-file, inspect-datasource-file, or publish-datasource. Required: datasourceId (LUID).',
     paramsSchema,
     annotations: { title: 'Download Datasource', readOnlyHint: true, openWorldHint: false },
     callback: async (
@@ -41,7 +43,7 @@ export const getDownloadDatasourceTool = (server: Server): Tool<typeof paramsSch
       await getConfigWithOverrides({ restApiArgs });
 
       return await tool.logAndExecute<
-        { filename: string; contentBase64: string },
+        DownloadResult,
         DownloadDatasourceError
       >({
         requestId,
@@ -67,10 +69,10 @@ export const getDownloadDatasourceTool = (server: Server): Tool<typeof paramsSch
                 includeExtract: includeExtract ?? true,
               }),
           });
-          const contentBase64 = Buffer.from(data).toString('base64');
-          return new Ok({ filename, contentBase64 });
+          return new Ok(await processDownload(filename, data));
         },
         getErrorText: (e) => e.message,
+        getSuccessResult: (r: DownloadResult) => formatDownloadResult(r, 'datasource'),
         constrainSuccessResult: (r) => ({ type: 'success' as const, result: r }),
       });
     },

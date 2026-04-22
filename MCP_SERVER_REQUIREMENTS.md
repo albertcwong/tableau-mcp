@@ -71,8 +71,6 @@ Downloads a flow as `.tflx` (zipped; contains .tfl metadata).
 
 ### 2. Publish Tools
 
-**Agent workflow**: The agent always uses download-then-publish for server-side objects. It calls `download-workbook`/`download-datasource`/`download-flow` to get `contentBase64`, then passes that to the publish tool. Do not add `resourceUri` to publish tools (no upload UI needed). The agent never asks the user to upload.
-
 Publish tools accept either:
 - **Inline**: File content as base64 in the request (for small files, e.g. &lt; 64 MB)
 - **Upload session**: `uploadSessionId` from a prior Initiate File Upload + Append sequence (for large files)
@@ -155,6 +153,20 @@ List projects on the site. Supports recursive project discovery.
 | `limit` | number | No | Max results |
 
 **REST**: Projects API or `search-content` with `contentTypes: ['project']`.
+
+**Response**: Each project must include `parentProjectId` (from Tableau REST API) and ideally `path` or `locationPath` so the agent can build the full hierarchy and disambiguate projects with the same name. The MCP server can optionally add a computed `path` field (e.g. `"Parent / Child / Grandchild"`) by walking up `parentProjectId` to the root.
+
+---
+
+#### `get-project` (optional)
+
+Retrieve a single project by ID.
+
+| Parameter | Type | Required | Description |
+|----------|------|----------|-------------|
+| `projectId` | string | Yes | LUID of the project |
+
+**Response**: Project metadata including `parentProjectId` and optionally `path` or `locationPath` for disambiguation in the UI.
 
 ---
 
