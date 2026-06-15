@@ -19,7 +19,7 @@ export const getDownloadFlowTool = (server: Server): Tool<typeof paramsSchema> =
     server,
     name: 'download-flow',
     description:
-      'Downloads a flow as .tflx (packaged flow). For small files, returns contentBase64 inline. For large files, returns filePath to pass to get-downloaded-file, inspect-flow-file, or publish-flow. Required param: flowId (LUID).',
+      'Downloads a flow as .tflx (packaged flow). For small files, returns contentBase64 inline. For large files, returns filePath to pass to get-downloaded-file or publish-flow. Required param: flowId (LUID).',
     paramsSchema,
     annotations: { title: 'Download Flow', readOnlyHint: true, openWorldHint: false },
     callback: async (

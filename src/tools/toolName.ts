@@ -25,10 +25,11 @@ export const toolNames = [
   'publish-workbook',
   'publish-datasource',
   'publish-flow',
-  'inspect-workbook-file',
-  'inspect-datasource-file',
-  'inspect-flow-file',
   'update-datasource-data',
+  'list-flows',
+  'run-flow',
+  'list-extract-refresh-tasks',
+  'run-extract-refresh',
 ] as const;
 export type ToolName = (typeof toolNames)[number];
 
@@ -42,6 +43,7 @@ export const toolGroupNames = [
   'content-exploration',
   'users',
   'sites',
+  'tasks',
 ] as const;
 export type ToolGroupName = (typeof toolGroupNames)[number];
 
@@ -52,7 +54,6 @@ export const toolGroups = {
     'query-datasource',
     'download-datasource',
     'publish-datasource',
-    'inspect-datasource-file',
     'get-downloaded-file',
     'update-datasource-data',
   ],
@@ -61,10 +62,9 @@ export const toolGroups = {
     'get-workbook',
     'download-workbook',
     'publish-workbook',
-    'inspect-workbook-file',
   ],
   view: ['list-views', 'get-view-data', 'get-view-image'],
-  flow: ['download-flow', 'publish-flow', 'inspect-flow-file'],
+  flow: ['download-flow', 'publish-flow', 'list-flows', 'run-flow'],
   projects: ['list-projects'],
   pulse: [
     'list-all-pulse-metric-definitions',
@@ -78,6 +78,7 @@ export const toolGroups = {
   'content-exploration': ['search-content'],
   users: ['list-users'],
   sites: ['list-sites'],
+  tasks: ['list-extract-refresh-tasks', 'run-extract-refresh'],
 } as const satisfies Record<ToolGroupName, Array<ToolName>>;
 
 export function isToolName(value: unknown): value is ToolName {

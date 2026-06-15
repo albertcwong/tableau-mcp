@@ -25,7 +25,6 @@ export function formatDownloadResult(
     };
   }
 
-  const inspectTool = `inspect-${contentType}-file`;
   const publishTool = `publish-${contentType}`;
 
   return {
@@ -36,7 +35,7 @@ export function formatDownloadResult(
         filename: result.filename,
         sizeBytes: result.sizeBytes,
         filePath: result.filePath,
-        usage: `Pass filePath to: ${inspectTool} (structure), ${publishTool} (republish), or get-downloaded-file (to get base64 content for saving locally). filePath is server-internal and not accessible via shell.`,
+        usage: `Pass filePath to: ${publishTool} (republish) or get-downloaded-file (to get base64 content for saving locally). filePath is server-internal and not accessible via shell.`,
       }),
     }],
   };

@@ -15,7 +15,7 @@ export const getGetDownloadedFileTool = (server: Server): Tool<typeof paramsSche
     server,
     name: 'get-downloaded-file',
     description:
-      'Returns the base64-encoded content of a previously downloaded file (from download-datasource, download-workbook, or download-flow). Use this when you need the actual file bytes, e.g. to save to the local filesystem. For inspecting structure, prefer inspect-*-file tools instead.',
+      'Returns the base64-encoded content of a previously downloaded file (from download-datasource, download-workbook, or download-flow). Use this when you need the actual file bytes, e.g. to save to the local filesystem.',
     paramsSchema,
     annotations: { title: 'Get Downloaded File', readOnlyHint: true, openWorldHint: false },
     callback: async (

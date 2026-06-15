@@ -36,7 +36,9 @@ type JwtScopes =
   | 'tableau:flows:download'
   | 'tableau:flows:create'
   | 'tableau:file_uploads:create'
-  | 'tableau:hyper_data:update';
+  | 'tableau:hyper_data:update'
+  | 'tableau:tasks:read'
+  | 'tableau:tasks:run';
 
 export type RestApiArgs = {
   config: Config;

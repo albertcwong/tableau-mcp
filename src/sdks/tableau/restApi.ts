@@ -21,6 +21,7 @@ import ProjectsMethods from './methods/projectsMethods.js';
 import PulseMethods from './methods/pulseMethods.js';
 import { AuthenticatedServerMethods, ServerMethods } from './methods/serverMethods.js';
 import SitesMethods from './methods/sitesMethods.js';
+import TasksMethods from './methods/tasksMethods.js';
 import UsersMethods from './methods/usersMethods.js';
 import ViewsMethods from './methods/viewsMethods.js';
 import VizqlDataServiceMethods from './methods/vizqlDataServiceMethods.js';
@@ -52,6 +53,7 @@ export class RestApi {
   private _pulseMethods?: PulseMethods;
   private _serverMethods?: ServerMethods;
   private _sitesMethods?: SitesMethods;
+  private _tasksMethods?: TasksMethods;
   private _usersMethods?: UsersMethods;
   private _vizqlDataServiceMethods?: VizqlDataServiceMethods;
   private _viewsMethods?: ViewsMethods;
@@ -283,6 +285,18 @@ export class RestApi {
     }
 
     return this._sitesMethods;
+  }
+
+  get tasksMethods(): TasksMethods {
+    if (!this._tasksMethods) {
+      this._tasksMethods = new TasksMethods(this._baseUrl, this.creds, {
+        timeout: this._maxRequestTimeoutMs,
+        signal: this._signal,
+      });
+      this._addInterceptors(this._baseUrl, this._tasksMethods.interceptors);
+    }
+
+    return this._tasksMethods;
   }
 
   get viewsMethods(): ViewsMethods {

@@ -25,7 +25,7 @@ export const getDownloadWorkbookTool = (server: Server): Tool<typeof paramsSchem
     server,
     name: 'download-workbook',
     description:
-      'Downloads a workbook as .twbx (packaged) or .twb (when extract excluded). Use includeExtract: false for faster structure-only download. For small files, returns contentBase64 inline. For large files, returns filePath to pass to get-downloaded-file, inspect-workbook-file, or publish-workbook. Required: workbookId (LUID).',
+      'Downloads a workbook as .twbx (packaged) or .twb (when extract excluded). Use includeExtract: false for faster structure-only download. For small files, returns contentBase64 inline. For large files, returns filePath to pass to get-downloaded-file or publish-workbook. Required: workbookId (LUID).',
     paramsSchema,
     annotations: { title: 'Download Workbook', readOnlyHint: true, openWorldHint: false },
     callback: async (

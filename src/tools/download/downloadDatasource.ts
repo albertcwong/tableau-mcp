@@ -25,7 +25,7 @@ export const getDownloadDatasourceTool = (server: Server): Tool<typeof paramsSch
     server,
     name: 'download-datasource',
     description:
-      'Downloads a datasource as .tdsx. Use includeExtract: false for faster structure-only download. For small files, returns contentBase64 inline. For large files, returns filePath to pass to get-downloaded-file, inspect-datasource-file, or publish-datasource. Required: datasourceId (LUID).',
+      'Downloads a datasource as .tdsx. Use includeExtract: false for faster structure-only download. For small files, returns contentBase64 inline. For large files, returns filePath to pass to get-downloaded-file or publish-datasource. Required: datasourceId (LUID).',
     paramsSchema,
     annotations: { title: 'Download Datasource', readOnlyHint: true, openWorldHint: false },
     callback: async (

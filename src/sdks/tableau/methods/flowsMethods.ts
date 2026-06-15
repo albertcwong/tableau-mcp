@@ -30,6 +30,52 @@ export default class FlowsMethods extends AuthenticatedMethods<typeof flowsApis>
   }
 
   /**
+   * Returns a list of flows on the specified site.
+   *
+   * Required scopes: `tableau:content:read`
+   */
+  listFlows = async ({
+    siteId,
+    filter,
+    pageSize,
+    pageNumber,
+  }: {
+    siteId: string;
+    filter?: string;
+    pageSize?: number;
+    pageNumber?: number;
+  }): Promise<{ pagination: { pageNumber: number; pageSize: number; totalAvailable: number }; flows: Array<Record<string, unknown>> }> => {
+    const response = await this._apiClient.listFlows({
+      params: { siteId },
+      queries: { filter, pageSize, pageNumber },
+      ...this.authHeader,
+    });
+    return {
+      pagination: response.pagination ?? { pageNumber: 1, pageSize: 100, totalAvailable: 0 },
+      flows: response.flows?.flow ?? [],
+    };
+  };
+
+  /**
+   * Runs the specified flow.
+   *
+   * Required scopes: `tableau:tasks:run`
+   */
+  runFlow = async ({
+    siteId,
+    flowId,
+  }: {
+    siteId: string;
+    flowId: string;
+  }): Promise<Record<string, unknown>> => {
+    const response = await this._apiClient.runFlow(undefined, {
+      params: { siteId, flowId },
+      ...this.authHeader,
+    });
+    return response;
+  };
+
+  /**
    * Downloads a flow as .tflx. Required scope: tableau:flows:download
    */
   downloadFlowContent = async ({

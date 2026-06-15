@@ -7,9 +7,6 @@ import { getPublishDatasourceTool } from './publish/publishDatasource.js';
 import { getUpdateDatasourceDataTool } from './updateDatasourceData/updateDatasourceData.js';
 import { getPublishFlowTool } from './publish/publishFlow.js';
 import { getPublishWorkbookTool } from './publish/publishWorkbook.js';
-import { getInspectDatasourceFileTool } from './inspect/inspectDatasourceFile.js';
-import { getInspectFlowFileTool } from './inspect/inspectFlowFile.js';
-import { getInspectWorkbookFileTool } from './inspect/inspectWorkbookFile.js';
 import { getGetDatasourceMetadataTool } from './getDatasourceMetadata/getDatasourceMetadata.js';
 import { getListDatasourcesTool } from './listDatasources/listDatasources.js';
 import { getListProjectsTool } from './listProjects/listProjects.js';
@@ -28,6 +25,10 @@ import { getGetViewImageTool } from './views/getViewImage.js';
 import { getListViewsTool } from './views/listViews.js';
 import { getGetWorkbookTool } from './workbooks/getWorkbook.js';
 import { getListWorkbooksTool } from './workbooks/listWorkbooks.js';
+import { getListFlowsTool } from './listFlows/listFlows.js';
+import { getRunFlowTool } from './runFlow/runFlow.js';
+import { getListExtractRefreshTasksTool } from './listExtractRefreshTasks/listExtractRefreshTasks.js';
+import { getRunExtractRefreshTool } from './runExtractRefresh/runExtractRefresh.js';
 
 export const toolFactories = [
   getDownloadDatasourceTool,
@@ -35,9 +36,6 @@ export const toolFactories = [
   getDownloadWorkbookTool,
   getGetDownloadedFileTool,
   getGetDatasourceMetadataTool,
-  getInspectDatasourceFileTool,
-  getInspectFlowFileTool,
-  getInspectWorkbookFileTool,
   getPublishDatasourceTool,
   getUpdateDatasourceDataTool,
   getPublishFlowTool,
@@ -60,4 +58,8 @@ export const toolFactories = [
   getListUsersTool,
   getListSitesTool,
   getSearchContentTool,
+  getListFlowsTool,
+  getRunFlowTool,
+  getListExtractRefreshTasksTool,
+  getRunExtractRefreshTool,
 ];
