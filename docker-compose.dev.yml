@@ -68,5 +68,26 @@ services:
       - ./tsconfig.json:/app/tsconfig.json
       - node_modules_dev:/app/node_modules
 
+  tableau-mcp-proserver:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3930:3930"
+    env_file:
+      - .env.proserver
+    environment:
+      DEFAULT_LOG_LEVEL: debug
+    volumes:
+      - ./src:/app/src
+      - ./build:/app/build
+      - ./mcp-app:/app/mcp-app
+      - ./scripts:/app/scripts
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - node_modules_dev:/app/node_modules
+
 volumes:
   node_modules_dev: {}
