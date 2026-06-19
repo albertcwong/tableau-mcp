@@ -1,10 +1,10 @@
 import { Zodios } from '@zodios/core';
 
 import { AxiosRequestConfig } from '../../../utils/axios.js';
-import { Credentials } from '../types/credentials.js';
 import { fileUploadsApis } from '../apis/fileUploadsApi.js';
-import { buildAppendMultipartBody } from '../utils/publishMultipart.js';
+import { RestApiCredentials } from '../restApi.js';
 import { parseFileUploadResponseXml } from '../utils/parsePublishResponse.js';
+import { buildAppendMultipartBody } from '../utils/publishMultipart.js';
 import AuthenticatedMethods from './authenticatedMethods.js';
 
 /**
@@ -12,7 +12,7 @@ import AuthenticatedMethods from './authenticatedMethods.js';
  * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_concepts_publish.htm
  */
 export default class FileUploadsMethods extends AuthenticatedMethods<typeof fileUploadsApis> {
-  constructor(baseUrl: string, creds: Credentials, axiosConfig: AxiosRequestConfig) {
+  constructor(baseUrl: string, creds: RestApiCredentials, axiosConfig: AxiosRequestConfig) {
     super(new Zodios(baseUrl, fileUploadsApis, { axiosConfig }), creds);
   }
 

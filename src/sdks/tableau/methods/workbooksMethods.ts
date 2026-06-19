@@ -1,19 +1,18 @@
 import { Zodios } from '@zodios/core';
 
-import { getStringResponseHeader } from '../../../utils/axios.js';
-import { AxiosRequestConfig } from '../../../utils/axios.js';
+import { AxiosRequestConfig, getStringResponseHeader } from '../../../utils/axios.js';
 import { workbooksApis } from '../apis/workbooksApi.js';
-import { Credentials } from '../types/credentials.js';
+import { RestApiCredentials } from '../restApi.js';
 import { Pagination } from '../types/pagination.js';
 import { Workbook } from '../types/workbook.js';
+import { parsePublishResponseXml } from '../utils/parsePublishResponse.js';
 import {
+  APPEND_CHUNK_MAX_BYTES,
   buildPublishMultipartBody,
   buildPublishRequestOnlyBody,
   escapeXml,
-  APPEND_CHUNK_MAX_BYTES,
   SINGLE_CALL_PUBLISH_LIMIT_BYTES,
 } from '../utils/publishMultipart.js';
-import { parsePublishResponseXml } from '../utils/parsePublishResponse.js';
 import AuthenticatedMethods from './authenticatedMethods.js';
 import FileUploadsMethods from './fileUploadsMethods.js';
 
@@ -27,7 +26,7 @@ import FileUploadsMethods from './fileUploadsMethods.js';
 export default class WorkbooksMethods extends AuthenticatedMethods<typeof workbooksApis> {
   constructor(
     baseUrl: string,
-    creds: Credentials,
+    creds: RestApiCredentials,
     axiosConfig: AxiosRequestConfig,
     private readonly _fileUploads: FileUploadsMethods,
   ) {
@@ -55,7 +54,9 @@ export default class WorkbooksMethods extends AuthenticatedMethods<typeof workbo
     });
     const cd = getStringResponseHeader(res.headers, 'content-disposition');
     const filename =
-      cd.match(/filename="([^"]+)"/)?.[1] ?? cd.match(/filename=([^;]+)/)?.[1]?.trim() ?? 'workbook.twbx';
+      cd.match(/filename="([^"]+)"/)?.[1] ??
+      cd.match(/filename=([^;]+)/)?.[1]?.trim() ??
+      'workbook.twbx';
     return { data: res.data, filename };
   };
 
@@ -139,7 +140,13 @@ export default class WorkbooksMethods extends AuthenticatedMethods<typeof workbo
     const baseUrl = this._apiClient.axios.defaults.baseURL ?? '';
 
     if (uploadSessionId) {
-      return this._publishWorkbookWithSession({ siteId, projectId, name, uploadSessionId, overwrite });
+      return this._publishWorkbookWithSession({
+        siteId,
+        projectId,
+        name,
+        uploadSessionId,
+        overwrite,
+      });
     }
 
     const fileContent = Buffer.from(contentBase64!, 'base64');
@@ -148,7 +155,10 @@ export default class WorkbooksMethods extends AuthenticatedMethods<typeof workbo
       const chunks = Math.ceil(fileContent.length / APPEND_CHUNK_MAX_BYTES);
       for (let i = 0; i < chunks; i++) {
         const start = i * APPEND_CHUNK_MAX_BYTES;
-        const chunk = fileContent.subarray(start, Math.min(start + APPEND_CHUNK_MAX_BYTES, fileContent.length));
+        const chunk = fileContent.subarray(
+          start,
+          Math.min(start + APPEND_CHUNK_MAX_BYTES, fileContent.length),
+        );
         await this._fileUploads.appendToFileUpload({
           siteId,
           uploadSessionId: sessionId,
@@ -157,7 +167,13 @@ export default class WorkbooksMethods extends AuthenticatedMethods<typeof workbo
           fileContent: chunk,
         });
       }
-      return this._publishWorkbookWithSession({ siteId, projectId, name, uploadSessionId: sessionId, overwrite });
+      return this._publishWorkbookWithSession({
+        siteId,
+        projectId,
+        name,
+        uploadSessionId: sessionId,
+        overwrite,
+      });
     }
 
     const payload = `<tsRequest><workbook name="${escapeXml(name)}" showTabs="true"><project id="${escapeXml(projectId)}"/></workbook></tsRequest>`;
@@ -207,5 +223,58 @@ export default class WorkbooksMethods extends AuthenticatedMethods<typeof workbo
       responseType: 'text',
     });
     return parsePublishResponseXml(res.data);
+  };
+
+  /**
+   * Deletes the specified workbook from the site.
+   *
+   * On Tableau Cloud the workbook is moved to the recycle bin and can be restored
+   * for a limited time before permanent removal.
+   *
+   * Required scopes (Tableau Cloud): `tableau:workbooks:delete`
+   *
+   * @param workbookId - The ID of the workbook to delete.
+   * @param siteId - The Tableau site ID
+   * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_workbooks_and_views.htm#delete_workbook
+   */
+  deleteWorkbook = async ({
+    workbookId,
+    siteId,
+  }: {
+    workbookId: string;
+    siteId: string;
+  }): Promise<void> => {
+    await this._apiClient.deleteWorkbook(undefined, {
+      params: { siteId, workbookId },
+      ...this.authHeader,
+    });
+  };
+
+  /**
+   * Adds one or more tags to the specified workbook.
+   *
+   * Required scopes (Tableau Cloud): `tableau:workbook_tags:update`
+   *
+   * @param workbookId - The ID of the workbook to tag.
+   * @param siteId - The Tableau site ID
+   * @param tagLabels - The tag labels to add.
+   * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_workbooks_and_views.htm#add_tags_to_workbook
+   */
+  addTagsToWorkbook = async ({
+    workbookId,
+    siteId,
+    tagLabels,
+  }: {
+    workbookId: string;
+    siteId: string;
+    tagLabels: ReadonlyArray<string>;
+  }): Promise<void> => {
+    await this._apiClient.addTagsToWorkbook(
+      { tags: { tag: tagLabels.map((label) => ({ label })) } },
+      {
+        params: { siteId, workbookId },
+        ...this.authHeader,
+      },
+    );
   };
 }

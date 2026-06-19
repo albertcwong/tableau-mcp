@@ -9,6 +9,11 @@ export const dataSourceSchema = z.object({
   description: z.string().optional(),
   size: z.string().optional(),
   project: projectSchema,
+  owner: z
+    .object({
+      id: z.string(),
+    })
+    .optional(),
   tags: tagsSchema,
 });
 

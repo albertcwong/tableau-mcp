@@ -26,11 +26,12 @@ export function buildAppendMultipartBody({
 }): { body: Buffer; boundary: string } {
   const boundary = `----TableauAppend${Date.now()}${Math.random().toString(36).slice(2)}`;
   const b = `--${boundary}\r\n`;
-  const part1 = b + `Content-Disposition: name="request_payload"\r\nContent-Type: text/xml\r\n\r\n\r\n`;
+  const part1 =
+    b + 'Content-Disposition: name="request_payload"\r\nContent-Type: text/xml\r\n\r\n\r\n';
   const part2 =
     b +
     `Content-Disposition: name="tableau_file"; filename="${filename}"\r\n` +
-    `Content-Type: application/octet-stream\r\n\r\n`;
+    'Content-Type: application/octet-stream\r\n\r\n';
   const end = `\r\n--${boundary}--\r\n`;
   return {
     body: Buffer.concat([
@@ -46,10 +47,15 @@ export function buildAppendMultipartBody({
 /**
  * Builds multipart body for Publish when committing an upload session (no file, request_payload only).
  */
-export function buildPublishRequestOnlyBody(requestPayload: string): { body: Buffer; boundary: string } {
+export function buildPublishRequestOnlyBody(requestPayload: string): {
+  body: Buffer;
+  boundary: string;
+} {
   const boundary = `----TableauCommit${Date.now()}${Math.random().toString(36).slice(2)}`;
   const b = `--${boundary}\r\n`;
-  const part1 = b + `Content-Disposition: name="request_payload"\r\nContent-Type: text/xml\r\n\r\n${requestPayload}\r\n`;
+  const part1 =
+    b +
+    `Content-Disposition: name="request_payload"\r\nContent-Type: text/xml\r\n\r\n${requestPayload}\r\n`;
   const end = `--${boundary}--\r\n`;
   return {
     body: Buffer.concat([Buffer.from(part1, 'utf8'), Buffer.from(end, 'utf8')]),
@@ -80,7 +86,7 @@ export function buildPublishMultipartBody({
   const part2 =
     b +
     `Content-Disposition: name="${filePartName}"; filename="${filename}"\r\n` +
-    `Content-Type: application/octet-stream\r\n\r\n`;
+    'Content-Type: application/octet-stream\r\n\r\n';
   const end = `\r\n--${boundary}--\r\n`;
   return {
     body: Buffer.concat([

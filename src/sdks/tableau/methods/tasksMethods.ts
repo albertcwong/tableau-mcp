@@ -1,51 +1,75 @@
 import { Zodios } from '@zodios/core';
 
 import { AxiosRequestConfig } from '../../../utils/axios.js';
-import { tasksApis } from '../apis/tasksApi.js';
-import { Credentials } from '../types/credentials.js';
+import { parseListExtractRefreshTasksResponse, tasksApis } from '../apis/tasksApi.js';
+import { RestApiCredentials } from '../restApi.js';
+import { ExtractRefreshTask } from '../types/extractRefreshTask.js';
 import AuthenticatedMethods from './authenticatedMethods.js';
 
 /**
- * Tasks methods of the Tableau Server REST API
+ * Jobs, tasks, and schedules methods of the Tableau Server REST API
  *
  * @export
  * @class TasksMethods
- * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_extract_and_encryption.htm
+ * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_jobs_tasks_and_schedules.htm
  */
 export default class TasksMethods extends AuthenticatedMethods<typeof tasksApis> {
-  constructor(baseUrl: string, creds: Credentials, axiosConfig: AxiosRequestConfig) {
+  constructor(baseUrl: string, creds: RestApiCredentials, axiosConfig: AxiosRequestConfig) {
     super(new Zodios(baseUrl, tasksApis, { axiosConfig }), creds);
   }
 
   /**
-   * Returns a list of extract refresh tasks on the specified site.
+   * Returns a list of extract refresh tasks for the site.
+   * Each task is for a data source or workbook extract and includes schedule information.
    *
-   * Required scopes: `tableau:tasks:read`
+   * Required scopes (Tableau Cloud): `tableau:tasks:read`
+   *
+   * @param siteId - The Tableau site ID
+   * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_jobs_tasks_and_schedules.htm#list_extract_refresh_tasks
    */
   listExtractRefreshTasks = async ({
     siteId,
-    pageSize,
-    pageNumber,
   }: {
     siteId: string;
-    pageSize?: number;
-    pageNumber?: number;
-  }): Promise<{ pagination: { pageNumber: number; pageSize: number; totalAvailable: number }; tasks: Array<Record<string, unknown>> }> => {
-    const response = await this._apiClient.listExtractRefreshTasks({
+  }): Promise<ExtractRefreshTask[]> => {
+    const raw = await this._apiClient.listExtractRefreshTasks({
       params: { siteId },
-      queries: { pageSize, pageNumber },
       ...this.authHeader,
     });
-    return {
-      pagination: response.pagination ?? { pageNumber: 1, pageSize: 100, totalAvailable: 0 },
-      tasks: response.tasks?.task ?? [],
-    };
+    const response = parseListExtractRefreshTasksResponse(raw);
+    return response.tasks.task.map((t) => t.extractRefresh);
+  };
+
+  /**
+   * Deletes an extract refresh task from the site.
+   *
+   * Required scopes (Tableau Cloud): `tableau:tasks:delete`
+   *
+   * @param siteId - The Tableau site ID
+   * @param taskId - The extract refresh task ID to delete
+   * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_extract_and_encryption.htm#delete_extract_refresh_task
+   */
+  deleteExtractRefreshTask = async ({
+    siteId,
+    taskId,
+  }: {
+    siteId: string;
+    taskId: string;
+  }): Promise<void> => {
+    await this._apiClient.deleteExtractRefreshTask(undefined, {
+      params: { siteId, taskId },
+      ...this.authHeader,
+    });
   };
 
   /**
    * Runs the specified extract refresh task.
    *
-   * Required scopes: `tableau:tasks:run`
+   * Required scopes (Tableau Cloud): `tableau:tasks:run`
+   *
+   * @param siteId - The Tableau site ID
+   * @param taskId - The extract refresh task ID to run
+   * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_jobs_tasks_and_schedules.htm#run_extract_refresh_task
    */
   runExtractRefresh = async ({
     siteId,
@@ -54,10 +78,9 @@ export default class TasksMethods extends AuthenticatedMethods<typeof tasksApis>
     siteId: string;
     taskId: string;
   }): Promise<Record<string, unknown>> => {
-    const response = await this._apiClient.runExtractRefresh(undefined, {
+    return await this._apiClient.runExtractRefresh(undefined, {
       params: { siteId, taskId },
       ...this.authHeader,
     });
-    return response;
   };
 }

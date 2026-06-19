@@ -1,44 +1,57 @@
 /* eslint-disable no-console */
 
-import { build, BuildOptions, context } from 'esbuild';
-import { chmod, mkdir, rm } from 'fs/promises';
-import { spawn } from 'child_process';
+import { build, BuildOptions } from 'esbuild';
+import { chmod, copyFile, mkdir, rm } from 'fs/promises';
+import { resolve } from 'path';
+import { build as viteBuild } from 'vite';
+import { viteSingleFile } from 'vite-plugin-singlefile';
+
+import { GlobalIdentifierName, globalIdentifiers } from './globalIdentifiers.js';
+import { isVariant, variants } from './variants.js';
 
 const dev = process.argv.includes('--dev');
-const watch = process.argv.includes('--watch');
+const dirty = process.argv.includes('--dirty');
+const variant = process.argv.includes('--variant')
+  ? process.argv[process.argv.indexOf('--variant') + 1]
+  : 'default';
 
-const buildOptions: BuildOptions = {
-  entryPoints: ['./src/index.ts'],
-  bundle: true,
-  platform: 'node',
-  format: 'cjs',
-  minify: !dev,
-  packages: dev ? 'external' : 'bundle',
-  sourcemap: true,
-  logLevel: dev ? 'debug' : 'info',
-  logOverride: {
-    'empty-import-meta': 'silent',
-  },
-  outfile: './build/index.js',
+if (!isVariant(variant)) {
+  throw new Error(`Invalid variant: ${variant}. Expected one of: ${variants.join(', ')}`);
+}
+
+const globalValues: Record<GlobalIdentifierName, string> = {
+  BUILD_VARIANT: variant,
 };
 
-const tracingBuildOptions: BuildOptions = {
-  entryPoints: ['./src/telemetry/tracing.ts'],
-  bundle: true,
-  platform: 'node',
-  format: 'cjs',
-  minify: !dev,
-  packages: 'external',
-  sourcemap: true,
-  outfile: './build/telemetry/tracing.js',
-};
-
-async function buildOnce(): Promise<void> {
-  if (!watch) {
+(async () => {
+  if (!dirty) {
     await rm('./build', { recursive: true, force: true });
   }
 
-  console.log(watch ? '[watch] build started' : '🏗️ Building...');
+  console.log(`🏗️ Building ${variant} variant...`);
+  const buildOptions: BuildOptions = {
+    entryPoints: ['./src/index.ts'],
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    minify: !dev,
+    packages: dev ? 'external' : 'bundle',
+    sourcemap: true,
+    logLevel: dev ? 'debug' : 'info',
+    logOverride: {
+      'empty-import-meta': 'silent',
+    },
+    outfile: './build/index.js',
+    // must be last so that the action can override previous build options
+    ...globalIdentifiers.reduce((acc, { name, defaultValue, action }) => {
+      return { ...acc, ...action(globalValues[name] ?? defaultValue) };
+    }, {}),
+  };
+
+  if (!buildOptions.outfile) {
+    throw new Error('outfile build option must be specified');
+  }
+
   const result = await build(buildOptions);
 
   for (const error of result.errors) {
@@ -51,7 +64,16 @@ async function buildOnce(): Promise<void> {
 
   console.log('🏗️ Building telemetry/tracing.js...');
   await mkdir('./build/telemetry', { recursive: true });
-  const tracingResult = await build(tracingBuildOptions);
+  const tracingResult = await build({
+    entryPoints: ['./src/telemetry/tracing.ts'],
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    minify: !dev,
+    packages: 'external',
+    sourcemap: true,
+    outfile: './build/telemetry/tracing.js',
+  });
 
   for (const error of tracingResult.errors) {
     console.log(`❌ ${error.text}`);
@@ -61,46 +83,43 @@ async function buildOnce(): Promise<void> {
     console.log(`⚠️ ${warning.text}`);
   }
 
-  await chmod('./build/index.js', '755');
+  await chmod(buildOptions.outfile, '755');
 
-  console.log('🏗️ Building MCP Apps UI...');
-  for (const entry of ['mcp-app', 'chart-explorer', 'content-browser']) {
-    await new Promise<void>((resolve, reject) => {
-      const proc = spawn('npm', ['run', 'build:mcp-app'], {
-        stdio: 'inherit',
-        cwd: process.cwd(),
-        env: { ...process.env, MCP_APP_ENTRY: entry },
-      });
-      proc.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`build:mcp-app (${entry}) exited ${code}`))));
+  console.log('🏗️ Building MCP Apps...');
+  try {
+    const appsDir = resolve(process.cwd(), 'src/web/apps');
+    await viteBuild({
+      configFile: false, // Don't load vite.config.ts
+      root: appsDir,
+      plugins: [viteSingleFile()],
+      resolve: {
+        alias: {
+          '~': resolve(process.cwd()),
+        },
+      },
+      build: {
+        sourcemap: dev ? 'inline' : undefined,
+        cssMinify: !dev,
+        minify: !dev,
+        rollupOptions: {
+          input: resolve(appsDir, 'mcp-app.html'),
+        },
+        outDir: resolve(appsDir, 'dist'),
+        emptyOutDir: false,
+      },
     });
-  }
 
-  if (watch) {
-    console.log('[watch] build finished');
-  }
-}
+    // Copy built HTML to build directory
+    const buildWebApps = './build/web/apps/dist';
+    await mkdir(buildWebApps, { recursive: true });
+    await copyFile(
+      resolve(appsDir, 'dist/mcp-app.html'),
+      resolve(process.cwd(), buildWebApps, 'mcp-app.html'),
+    );
 
-(async () => {
-  if (watch) {
-    await rm('./build', { recursive: true, force: true });
-    await mkdir('./build/telemetry', { recursive: true });
-
-    const ctx = await context(buildOptions);
-    const tracingCtx = await context(tracingBuildOptions);
-
-    await ctx.watch();
-    await tracingCtx.watch();
-
-    console.log('[watch] build started');
-    console.log('[watch] watching for changes...');
-
-    // Keep process alive
-    process.on('SIGINT', async () => {
-      await ctx.dispose();
-      await tracingCtx.dispose();
-      process.exit(0);
-    });
-  } else {
-    await buildOnce();
+    console.log('✅ MCP Apps built successfully');
+  } catch (error) {
+    console.error('❌ Failed to build MCP Apps:', error);
+    process.exit(1);
   }
 })();

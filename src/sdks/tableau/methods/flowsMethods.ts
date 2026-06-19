@@ -1,17 +1,16 @@
 import { Zodios } from '@zodios/core';
 
-import { getStringResponseHeader } from '../../../utils/axios.js';
-import { AxiosRequestConfig } from '../../../utils/axios.js';
+import { AxiosRequestConfig, getStringResponseHeader } from '../../../utils/axios.js';
 import { flowsApis } from '../apis/flowsApi.js';
+import { RestApiCredentials } from '../restApi.js';
+import { parsePublishResponseXml } from '../utils/parsePublishResponse.js';
 import {
+  APPEND_CHUNK_MAX_BYTES,
   buildPublishMultipartBody,
   buildPublishRequestOnlyBody,
   escapeXml,
-  APPEND_CHUNK_MAX_BYTES,
   SINGLE_CALL_PUBLISH_LIMIT_BYTES,
 } from '../utils/publishMultipart.js';
-import { parsePublishResponseXml } from '../utils/parsePublishResponse.js';
-import { Credentials } from '../types/credentials.js';
 import AuthenticatedMethods from './authenticatedMethods.js';
 import FileUploadsMethods from './fileUploadsMethods.js';
 
@@ -22,7 +21,7 @@ import FileUploadsMethods from './fileUploadsMethods.js';
 export default class FlowsMethods extends AuthenticatedMethods<typeof flowsApis> {
   constructor(
     baseUrl: string,
-    creds: Credentials,
+    creds: RestApiCredentials,
     axiosConfig: AxiosRequestConfig,
     private readonly _fileUploads: FileUploadsMethods,
   ) {
@@ -44,7 +43,10 @@ export default class FlowsMethods extends AuthenticatedMethods<typeof flowsApis>
     filter?: string;
     pageSize?: number;
     pageNumber?: number;
-  }): Promise<{ pagination: { pageNumber: number; pageSize: number; totalAvailable: number }; flows: Array<Record<string, unknown>> }> => {
+  }): Promise<{
+    pagination: { pageNumber: number; pageSize: number; totalAvailable: number };
+    flows: Array<Record<string, unknown>>;
+  }> => {
     const response = await this._apiClient.listFlows({
       params: { siteId },
       queries: { filter, pageSize, pageNumber },
@@ -93,7 +95,9 @@ export default class FlowsMethods extends AuthenticatedMethods<typeof flowsApis>
     });
     const cd = getStringResponseHeader(res.headers, 'content-disposition');
     const filename =
-      cd.match(/filename="([^"]+)"/)?.[1] ?? cd.match(/filename=([^;]+)/)?.[1]?.trim() ?? 'flow.tflx';
+      cd.match(/filename="([^"]+)"/)?.[1] ??
+      cd.match(/filename=([^;]+)/)?.[1]?.trim() ??
+      'flow.tflx';
     return { data: res.data, filename };
   };
 
@@ -128,7 +132,10 @@ export default class FlowsMethods extends AuthenticatedMethods<typeof flowsApis>
       const chunks = Math.ceil(fileContent.length / APPEND_CHUNK_MAX_BYTES);
       for (let i = 0; i < chunks; i++) {
         const start = i * APPEND_CHUNK_MAX_BYTES;
-        const chunk = fileContent.subarray(start, Math.min(start + APPEND_CHUNK_MAX_BYTES, fileContent.length));
+        const chunk = fileContent.subarray(
+          start,
+          Math.min(start + APPEND_CHUNK_MAX_BYTES, fileContent.length),
+        );
         await this._fileUploads.appendToFileUpload({
           siteId,
           uploadSessionId: sessionId,
@@ -137,7 +144,13 @@ export default class FlowsMethods extends AuthenticatedMethods<typeof flowsApis>
           fileContent: chunk,
         });
       }
-      return this._publishFlowWithSession({ siteId, projectId, name, uploadSessionId: sessionId, overwrite });
+      return this._publishFlowWithSession({
+        siteId,
+        projectId,
+        name,
+        uploadSessionId: sessionId,
+        overwrite,
+      });
     }
 
     const payload = `<tsRequest><flow name="${escapeXml(name)}"><project id="${escapeXml(projectId)}"/></flow></tsRequest>`;

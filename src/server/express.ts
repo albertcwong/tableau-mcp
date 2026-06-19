@@ -1,5 +1,10 @@
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { isInitializeRequest, LoggingLevel } from '@modelcontextprotocol/sdk/types.js';
+import {
+  isInitializeRequest,
+  LoggingLevel,
+  SetLevelRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express, { Request, RequestHandler, Response } from 'express';
 import fs, { existsSync } from 'fs';
@@ -7,14 +12,19 @@ import http from 'http';
 import https from 'https';
 
 import { Config } from '../config.js';
-import { setLogLevel } from '../logging/log.js';
+import { log } from '../logging/logger.js';
+import { setNotificationLevel } from '../logging/notification.js';
 import { Server } from '../server.js';
+import { WebMcpServer } from '../server.web.js';
 import { createSession, getSession, Session } from '../sessions.js';
-import { handlePingRequest, validateProtocolVersion } from './middleware.js';
+import { latencyMiddleware } from './latencyMiddleware.js';
+import { handlePingRequest } from './middleware.js';
 import { getTableauAuthInfo } from './oauth/getTableauAuthInfo.js';
-import { OAuthProvider } from './oauth/provider.js';
+import { EmbeddedOAuthProvider, TableauOAuthProvider } from './oauth/provider.js';
 import { TableauAuthInfo } from './oauth/schemas.js';
 import { AuthenticatedRequest } from './oauth/types.js';
+import { passthroughAuthMiddleware, X_TABLEAU_AUTH_HEADER } from './passthroughAuthMiddleware.js';
+import { X_TABLEAU_MCP_CONFIG_HEADER } from './requestUtils.js';
 
 const SESSION_ID_HEADER = 'mcp-session-id';
 
@@ -29,10 +39,14 @@ export async function startExpressServer({
 }): Promise<{ url: string; app: express.Application; server: http.Server }> {
   const app = express();
 
-  // Publish tools send contentBase64 (workbook/datasource/flow); default 100kb is too small
+  // Publish tools send contentBase64 (workbook/datasource/flow); default 100kb is too small.
   const bodyLimit = '50mb';
   app.use(express.json({ limit: bodyLimit }));
-  app.use(express.urlencoded({ limit: bodyLimit }));
+  app.use(express.urlencoded({ limit: bodyLimit, extended: true }));
+  if (config.enablePassthroughAuth) {
+    // cookie-parser is used to parse the workgroup_session_id cookie for passthrough auth
+    app.use(cookieParser());
+  }
 
   app.use(
     cors({
@@ -44,23 +58,27 @@ export async function startExpressServer({
         'Cache-Control',
         'Accept',
         'MCP-Protocol-Version',
+        X_TABLEAU_AUTH_HEADER,
+        X_TABLEAU_MCP_CONFIG_HEADER,
       ],
       exposedHeaders: [SESSION_ID_HEADER, 'x-session-id'],
     }),
   );
 
-  if (config.trustProxyConfig !== null) {
-    // https://expressjs.com/en/guide/behind-proxies.html
-    app.set('trust proxy', config.trustProxyConfig);
+  const middleware: Array<RequestHandler> = [handlePingRequest];
+  if (config.enablePassthroughAuth) {
+    middleware.push(passthroughAuthMiddleware());
   }
 
-  const middleware: Array<RequestHandler> = [handlePingRequest];
   if (config.oauth.enabled) {
-    const oauthProvider = new OAuthProvider();
+    const oauthProvider = config.oauth.embeddedAuthzServer
+      ? new EmbeddedOAuthProvider()
+      : new TableauOAuthProvider();
+
     oauthProvider.setupRoutes(app);
     middleware.push(oauthProvider.authMiddleware);
-    middleware.push(validateProtocolVersion);
   }
+  middleware.push(latencyMiddleware());
 
   const path = `/${basePath}`;
   app.post(path, ...middleware, createMcpServer);
@@ -112,14 +130,14 @@ export async function startExpressServer({
       let transport: StreamableHTTPServerTransport;
 
       if (config.disableSessionManagement) {
-        const server = new Server();
+        const server = new WebMcpServer();
         transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: undefined,
         });
 
         res.on('close', () => {
           transport.close();
-          server.close();
+          server.mcpServer.close();
         });
 
         await connect(server, transport, logLevel, getTableauAuthInfo(req.auth));
@@ -133,10 +151,14 @@ export async function startExpressServer({
           const clientInfo = req.body.params.clientInfo;
           transport = createSession({ clientInfo });
 
-          const server = new Server({ clientInfo });
+          const server = new WebMcpServer({ clientInfo });
           await connect(server, transport, logLevel, getTableauAuthInfo(req.auth));
         } else {
-          // Invalid request
+          log({
+            message: 'Rejected request: no valid session ID and not an initialize request',
+            level: 'error',
+            logger: 'server',
+          });
           res.status(400).json({
             jsonrpc: '2.0',
             error: {
@@ -151,7 +173,12 @@ export async function startExpressServer({
 
       await transport.handleRequest(req, res, req.body);
     } catch (error) {
-      console.error('Error handling MCP request:', error);
+      log({
+        message: 'Error handling MCP request',
+        level: 'error',
+        logger: 'server',
+        data: error,
+      });
       if (!res.headersSent) {
         res.status(500).json({
           jsonrpc: '2.0',
@@ -172,17 +199,16 @@ async function connect(
   logLevel: LoggingLevel,
   authInfo: TableauAuthInfo | undefined,
 ): Promise<void> {
-  server.registerRequestHandlers();
-  // Register tools before the transport is attached so clients can call tools/list
-  // immediately after initialize, even if they never send notifications/initialized.
   await server.registerTools(authInfo);
-  await server.connect(transport);
-  setLogLevel(server, logLevel);
-}
+  server.mcpServer.server.setRequestHandler(SetLevelRequestSchema, async (request) => {
+    setNotificationLevel(server.mcpServer, request.params.level);
+    return {};
+  });
 
-export const exportedForTesting = {
-  connect,
-};
+  await server.mcpServer.connect(transport);
+  setNotificationLevel(server.mcpServer, logLevel);
+  log({ message: 'MCP server connected to transport', level: 'debug', logger: 'server' });
+}
 
 async function methodNotAllowed(_req: Request, res: Response): Promise<void> {
   res.writeHead(405).end(

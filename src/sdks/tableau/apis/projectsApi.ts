@@ -5,10 +5,10 @@ import { paginationSchema } from '../types/pagination.js';
 import { projectSchema } from '../types/project.js';
 import { paginationParameters } from './paginationParameters.js';
 
-const listProjectsEndpoint = makeEndpoint({
+const queryProjectsEndpoint = makeEndpoint({
   method: 'get',
   path: '/sites/:siteId/projects',
-  alias: 'listProjects',
+  alias: 'queryProjects',
   description: 'Returns a list of projects on the specified site.',
   parameters: [
     ...paginationParameters,
@@ -21,7 +21,8 @@ const listProjectsEndpoint = makeEndpoint({
       name: 'filter',
       type: 'Query',
       schema: z.string().optional(),
-      description: 'Filter string in the format field:operator:value (e.g., name:eq:Default)',
+      description:
+        'An expression that lets you specify a subset of projects to return. You can filter on predefined fields such as name, ownerName, parentProjectId, and updatedAt. You can include multiple filter expressions.',
     },
   ],
   response: z.object({
@@ -32,5 +33,6 @@ const listProjectsEndpoint = makeEndpoint({
   }),
 });
 
-const projectsApi = makeApi([listProjectsEndpoint]);
+const projectsApi = makeApi([queryProjectsEndpoint]);
+
 export const projectsApis = [...projectsApi] as const satisfies ZodiosEndpointDefinitions;

@@ -8,10 +8,10 @@ import { fileURLToPath } from 'url';
 import { z } from 'zod';
 
 import packageJson from '../../package.json';
-import { ProcessEnvEx } from '../../types/process-env.js';
-import { toolNames } from '../tools/toolName.js';
+import { ProcessEnvWeb } from '../../types/process-env.js';
+import { webToolNames } from '../tools/web/toolName.js';
 
-// @ts-expect-error - import.meta is not allowed in CommonJS output, but this file is built using esbuild as ESM
+// @ts-expect-error - import.meta is not allowed in CommonJS output, this script is run with tsx as ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -19,7 +19,7 @@ type McpbUserConfigurationOption = z.infer<typeof McpbUserConfigurationOptionSch
 type McpbManifest = z.infer<typeof McpbManifestSchema>;
 
 type EnvVars = {
-  [TKey in keyof ProcessEnvEx]: McpbUserConfigurationOption & {
+  [TKey in keyof ProcessEnvWeb]: McpbUserConfigurationOption & {
     includeInUserConfig: boolean;
   };
 };
@@ -174,27 +174,52 @@ const envVars = {
     required: false,
     sensitive: false,
   },
-  ENABLE_SERVER_LOGGING: {
+  ENABLED_LOGGERS: {
     includeInUserConfig: false,
     type: 'string',
-    title: 'Enable Server Logging',
-    description: 'Enable logging of server activity to local files.',
+    title: 'Logging',
+    description:
+      'Comma-separated list of loggers to enable. Valid values: fileLogger, appLogger. Example: "fileLogger,appLogger". Note: appLogger logs to stdout and only has effect when TRANSPORT is set to "http"; it is ignored on stdio transport.',
     required: false,
     sensitive: false,
   },
-  SERVER_LOG_DIRECTORY: {
+  FILE_LOGGER_DIRECTORY: {
     includeInUserConfig: false,
     type: 'string',
     title: 'Server Log Directory',
-    description: 'The directory to write the server logs to when ENABLE_SERVER_LOGGING is true.',
+    description: 'The directory to write the server logs to when fileLogger is enabled.',
     required: false,
     sensitive: false,
   },
-  DEFAULT_LOG_LEVEL: {
+  TELEMETRY_PROVIDER: {
     includeInUserConfig: false,
     type: 'string',
-    title: 'Default Log Level',
-    description: 'The default logging level of the server.',
+    title: 'Telemetry Provider',
+    description: 'The telemetry provider to use for server telemetry.',
+    required: false,
+    sensitive: false,
+  },
+  TELEMETRY_PROVIDER_CONFIG: {
+    includeInUserConfig: false,
+    type: 'string',
+    title: 'Telemetry Provider Config',
+    description: 'Provider-specific configuration for telemetry.',
+    required: false,
+    sensitive: false,
+  },
+  DEFAULT_NOTIFICATION_LEVEL: {
+    includeInUserConfig: false,
+    type: 'string',
+    title: 'Default Notification Level',
+    description: 'The default notification level for MCP client notifications.',
+    required: false,
+    sensitive: false,
+  },
+  LOG_LEVEL: {
+    includeInUserConfig: false,
+    type: 'string',
+    title: 'Log Level',
+    description: 'The minimum severity level for server log output.',
     required: false,
     sensitive: false,
   },
@@ -246,6 +271,14 @@ const envVars = {
     type: 'string',
     title: 'IDs of workbooks to constrain tool results by',
     description: 'A comma-separated list of workbook IDs to constrain tool results by.',
+    required: false,
+    sensitive: false,
+  },
+  INCLUDE_VIEW_IDS: {
+    includeInUserConfig: false,
+    type: 'string',
+    title: 'IDs of views to constrain tool results by',
+    description: 'A comma-separated list of view IDs to constrain tool results by.',
     required: false,
     sensitive: false,
   },
@@ -349,14 +382,6 @@ const envVars = {
     required: false,
     sensitive: false,
   },
-  TRUST_PROXY_CONFIG: {
-    includeInUserConfig: false,
-    type: 'string',
-    title: 'Trust Proxy Config',
-    description: 'The trust proxy config.',
-    required: false,
-    sensitive: false,
-  },
   DISABLE_LOG_MASKING: {
     includeInUserConfig: false,
     type: 'boolean',
@@ -370,6 +395,14 @@ const envVars = {
     type: 'number',
     title: 'Tableau Server Version Check Interval in Hours',
     description: 'The interval in hours to check the Tableau server version.',
+    required: false,
+    sensitive: false,
+  },
+  PASSTHROUGH_AUTH_USER_SESSION_CHECK_INTERVAL_IN_MINUTES: {
+    includeInUserConfig: false,
+    type: 'number',
+    title: 'Passthrough Auth Info Expiration Time in Minutes',
+    description: 'The expiration time in minutes for the passthrough auth info.',
     required: false,
     sensitive: false,
   },
@@ -389,11 +422,45 @@ const envVars = {
     required: false,
     sensitive: false,
   },
+  ALLOW_SITES_TO_CONFIGURE_REQUEST_OVERRIDES: {
+    includeInUserConfig: false,
+    type: 'boolean',
+    title: 'Allow Sites to Configure Request Overrides',
+    description: 'Allow sites to configure request overrides.',
+    required: false,
+    sensitive: false,
+  },
+  ALLOWED_REQUEST_OVERRIDES: {
+    includeInUserConfig: false,
+    type: 'string',
+    title: 'Allowed Request Overrides',
+    description:
+      'A comma-separated list of request override variables to allow. The format is `overridableVariableName:restrictionType`.',
+    required: false,
+    sensitive: false,
+  },
+  ENABLE_PASSTHROUGH_AUTH: {
+    includeInUserConfig: false,
+    type: 'boolean',
+    title: 'Enable Passthrough Auth',
+    description: 'Enable passthrough auth.',
+    required: false,
+    sensitive: false,
+  },
   DANGEROUSLY_DISABLE_OAUTH: {
     includeInUserConfig: false,
     type: 'boolean',
     title: 'Dangerously Disable OAuth',
     description: 'Dangerously disable OAuth when transport is http.',
+    required: false,
+    sensitive: false,
+  },
+  OAUTH_EMBEDDED_AUTHZ_SERVER: {
+    includeInUserConfig: false,
+    type: 'boolean',
+    title: 'OAuth Embedded Authz Server',
+    description:
+      'When true (default), the MCP server runs the embedded OAuth authz server (authorize, token, callback). When false, the issuer is an external authz server (e.g. Tableau).',
     required: false,
     sensitive: false,
   },
@@ -437,6 +504,23 @@ const envVars = {
     required: false,
     sensitive: false,
   },
+  OAUTH_RESOURCE_URI: {
+    includeInUserConfig: false,
+    type: 'string',
+    title: 'OAuth Resource URI',
+    description: 'The OAuth resource URI.',
+    required: false,
+    sensitive: false,
+  },
+  OAUTH_GLOBAL_RESOURCE_URI: {
+    includeInUserConfig: false,
+    type: 'string',
+    title: 'OAuth Global Resource URI',
+    description:
+      "An additional resource URI whose canonical identifier is accepted in a token's 'aud' claim, e.g. the environment's global Tableau URL alongside the pod-specific one.",
+    required: false,
+    sensitive: false,
+  },
   OAUTH_LOCK_SITE: {
     includeInUserConfig: false,
     type: 'boolean',
@@ -460,6 +544,22 @@ const envVars = {
     title: 'OAuth CIMD DNS Servers',
     description:
       'A comma-separated list of DNS server IP addresses to resolve the IP addresses of the client metadata document URLs.',
+    required: false,
+    sensitive: false,
+  },
+  ADVERTISE_API_SCOPES: {
+    includeInUserConfig: false,
+    type: 'boolean',
+    title: 'Advertise API Scopes',
+    description: 'Include Tableau API scopes in scopes_supported and scope challenges.',
+    required: false,
+    sensitive: false,
+  },
+  OAUTH_DISABLE_SCOPES: {
+    includeInUserConfig: false,
+    type: 'boolean',
+    title: 'OAuth Disable Scopes',
+    description: 'Disable scope enforcement and scope challenges when set to true.',
     required: false,
     sensitive: false,
   },
@@ -500,6 +600,50 @@ const envVars = {
     type: 'string',
     title: 'Product Telemetry Endpoint',
     description: 'The endpoint URL for product telemetry.',
+    required: false,
+    sensitive: false,
+  },
+  LATENCY_METRIC_NAME: {
+    includeInUserConfig: false,
+    type: 'string',
+    title: 'Latency Metric Name',
+    description:
+      'The histogram metric name used to record HTTP request latency for tool calls. Defaults to "http_server_1agg1_request_duration".',
+    required: false,
+    sensitive: false,
+  },
+  BREAK_GLASS_DISABLE_GLOBALLY: {
+    includeInUserConfig: false,
+    type: 'boolean',
+    title: 'Break Glass Disable Globally',
+    description: 'Force all MCP tools to return a "service unavailable" error message.',
+    required: false,
+    sensitive: false,
+  },
+  ADMIN_TOOLS_ENABLED: {
+    includeInUserConfig: false,
+    type: 'boolean',
+    title: 'Enable admin-only MCP tools',
+    description:
+      'When "true", registers admin-only MCP tools and prompts (e.g. Admin Insights queries, stale-content cleanup). Defaults to "false".',
+    required: false,
+    sensitive: false,
+  },
+  ADMIN_GATE_CACHE_TTL_MINUTES: {
+    includeInUserConfig: false,
+    type: 'string',
+    title: 'Admin tools cache TTL (minutes)',
+    description:
+      'TTL for caches used by admin-only tools (assertAdmin, Admin Insights dataset LUID, project name resolution). Defaults to 5; range 1-1440.',
+    required: false,
+    sensitive: false,
+  },
+  STALE_CONTENT_MIN_AGE_DAYS: {
+    includeInUserConfig: false,
+    type: 'string',
+    title: 'Stale content min age (days)',
+    description:
+      'Minimum days since last access for content to be considered stale by the stale-content-cleanup-inform prompt. Defaults to 90.',
     required: false,
     sensitive: false,
   },
@@ -558,7 +702,7 @@ const manifest = {
       env: manifestEnvObject,
     },
   },
-  tools: toolNames.map((name) => ({ name })),
+  tools: webToolNames.map((name) => ({ name })),
   user_config: userConfig,
 } satisfies McpbManifest;
 

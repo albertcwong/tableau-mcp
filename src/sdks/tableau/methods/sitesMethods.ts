@@ -2,7 +2,7 @@ import { Zodios } from '@zodios/core';
 
 import { AxiosRequestConfig } from '../../../utils/axios.js';
 import { sitesApis } from '../apis/sitesApi.js';
-import { Credentials } from '../types/credentials.js';
+import { RestApiCredentials } from '../restApi.js';
 import { Pagination } from '../types/pagination.js';
 import { Site } from '../types/site.js';
 import AuthenticatedMethods from './authenticatedMethods.js';
@@ -15,7 +15,7 @@ import AuthenticatedMethods from './authenticatedMethods.js';
  * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_sites.htm
  */
 export default class SitesMethods extends AuthenticatedMethods<typeof sitesApis> {
-  constructor(baseUrl: string, creds: Credentials, axiosConfig: AxiosRequestConfig) {
+  constructor(baseUrl: string, creds: RestApiCredentials, axiosConfig: AxiosRequestConfig) {
     super(new Zodios(baseUrl, sitesApis, { axiosConfig }), creds);
   }
 

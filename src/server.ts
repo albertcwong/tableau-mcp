@@ -1,26 +1,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { InitializeRequest, SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import {
-  registerAppTool,
-} from '@modelcontextprotocol/ext-apps/server';
+import { InitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 
-import pkg from '../package.json';
-import { getMcpAppMeta, isMcpAppsEnabled, registerMcpAppResource, TOOL_APP_URIS } from './mcpApps.js';
-import { setLogLevel } from './logging/log.js';
 import { TableauAuthInfo } from './server/oauth/schemas.js';
-import { Tool } from './tools/tool.js';
-import { toolNames } from './tools/toolName.js';
-import { toolFactories } from './tools/tools.js';
-import { getConfigWithOverrides } from './utils/mcpSiteSettings';
-import { Provider } from './utils/provider.js';
-
-export const serverName = 'tableau-mcp';
-export const serverVersion = pkg.version;
-export const userAgent = `${serverName}/${serverVersion}`;
 
 export type ClientInfo = InitializeRequest['params']['clientInfo'];
 
-export class Server extends McpServer {
+export abstract class Server {
+  readonly mcpServer: McpServer;
   readonly name: string;
   readonly version: string;
 
@@ -35,106 +21,51 @@ export class Server extends McpServer {
   private readonly _clientInfo: ClientInfo | undefined;
 
   get clientInfo(): ClientInfo | undefined {
-    return this._clientInfo ?? this.server.getClientVersion();
+    return this._clientInfo ?? this.mcpServer.server.getClientVersion();
   }
 
-  constructor({ clientInfo }: { clientInfo?: ClientInfo } = {}) {
-    super(
-      {
-        name: serverName,
-        version: serverVersion,
-      },
-      {
-        capabilities: {
-          logging: {},
-          tools: {},
+  constructor({
+    mcpServer,
+    clientInfo,
+    serverName,
+    serverVersion,
+  }: {
+    mcpServer?: McpServer;
+    clientInfo?: ClientInfo;
+    serverName: string;
+    serverVersion: string;
+  }) {
+    this.mcpServer =
+      mcpServer ??
+      new McpServer(
+        {
+          name: serverName,
+          version: serverVersion,
         },
-      },
-    );
+        {
+          capabilities: {
+            logging: {},
+            tools: {},
+            prompts: {},
+          },
+        },
+      );
 
     this.name = serverName;
     this.version = serverVersion;
     this._clientInfo = clientInfo;
   }
 
-  registerTools = async (authInfo?: TableauAuthInfo): Promise<void> => {
-    const toolsToRegister = await this._getToolsToRegister(authInfo);
-    const mcpAppsEnabled = isMcpAppsEnabled();
-
-    // Register app resources unconditionally when the built HTML files exist.
-    // Clients that don't support MCP Apps simply ignore _meta and the ui:// resource.
-    if (mcpAppsEnabled) {
-      registerMcpAppResource(this);
-    }
-
-    for (const {
-      name,
-      description,
-      paramsSchema,
-      annotations,
-      callback,
-    } of toolsToRegister) {
-      const resolvedAnnotations = await Provider.from(annotations);
-      const meta = mcpAppsEnabled ? getMcpAppMeta(name) : undefined;
-      const config = {
-        description: await Provider.from(description),
-        inputSchema: await Provider.from(paramsSchema),
-        annotations: resolvedAnnotations,
-        ...(meta && { _meta: meta._meta }),
-      };
-      const cb = await Provider.from(callback);
-      if (meta && TOOL_APP_URIS[name]) {
-        registerAppTool(this, name, config as Parameters<typeof registerAppTool>[2], cb as Parameters<typeof registerAppTool>[3]);
-      } else {
-        this.registerTool(name, config, cb);
+  get userAgent(): string {
+    const userAgentParts = [`${this.name}/${this.version}`];
+    if (this.clientInfo) {
+      const { name, version } = this.clientInfo;
+      if (name) {
+        userAgentParts.push(version ? `(${name} ${version})` : `(${name})`);
       }
     }
-  };
+    return userAgentParts.join(' ');
+  }
 
-  registerRequestHandlers = (): void => {
-    this.server.setRequestHandler(SetLevelRequestSchema, async (request) => {
-      setLogLevel(this, request.params.level);
-      return {};
-    });
-  };
-
-  private _getToolsToRegister = async (authInfo?: TableauAuthInfo): Promise<Array<Tool<any>>> => {
-    const config = await getConfigWithOverrides({
-      restApiArgs: {
-        server: this,
-        authInfo,
-        disableLogging: true, // MCP server is not connected yet so we can't send logging notifications
-      },
-    });
-
-    const { includeTools, excludeTools } = config;
-
-    const tools = toolFactories.map((toolFactory) => toolFactory(this, authInfo));
-    const toolsToRegister = tools.filter((tool) => {
-      if (includeTools.length > 0) {
-        return includeTools.includes(tool.name);
-      }
-
-      if (excludeTools.length > 0) {
-        return !excludeTools.includes(tool.name);
-      }
-
-      return true;
-    });
-
-    if (toolsToRegister.length === 0) {
-      throw new Error(`
-          No tools to register.
-          Tools available = [${toolNames.join(', ')}].
-          EXCLUDE_TOOLS = [${excludeTools.join(', ')}].
-          INCLUDE_TOOLS = [${includeTools.join(', ')}]
-        `);
-    }
-
-    return toolsToRegister;
-  };
+  abstract registerTools: (tableauAuthInfo?: TableauAuthInfo) => Promise<void>;
 }
-
-export const exportedForTesting = {
-  Server,
-};

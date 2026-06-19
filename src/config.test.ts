@@ -1,9 +1,8 @@
-import { exportedForTesting, ONE_HOUR_IN_MS, TEN_MINUTES_IN_MS } from './config.js';
+import { Config } from './config.js';
 import { stubDefaultEnvVars } from './testShared.js';
+import { milliseconds } from './utils/milliseconds.js';
 
 describe('Config', () => {
-  const { Config, parseNumber } = exportedForTesting;
-
   beforeEach(() => {
     vi.resetModules();
     vi.unstubAllEnvs();
@@ -69,28 +68,49 @@ describe('Config', () => {
     expect(config.siteName).toBe('tc25');
   });
 
-  it('should set default log level to debug when not specified', () => {
+  it('should set default notification level to debug when not specified', () => {
     const config = new Config();
-    expect(config.defaultLogLevel).toBe('debug');
+    expect(config.defaultNotificationLevel).toBe('debug');
   });
 
-  it('should set custom log level when specified', () => {
-    vi.stubEnv('DEFAULT_LOG_LEVEL', 'info');
+  it('should set custom notification level when specified', () => {
+    vi.stubEnv('DEFAULT_NOTIFICATION_LEVEL', 'info');
 
     const config = new Config();
-    expect(config.defaultLogLevel).toBe('info');
+    expect(config.defaultNotificationLevel).toBe('info');
   });
 
-  it('should set disableLogMasking to false by default', () => {
+  it('should set enableLogging to appLogger by default', () => {
     const config = new Config();
-    expect(config.disableLogMasking).toBe(false);
+    expect(config.loggers).toEqual(new Set(['appLogger']));
   });
 
-  it('should set disableLogMasking to true when specified', () => {
-    vi.stubEnv('DISABLE_LOG_MASKING', 'true');
+  it('should set enableLogging to fileLogger when specified', () => {
+    vi.stubEnv('ENABLED_LOGGERS', 'fileLogger');
 
     const config = new Config();
-    expect(config.disableLogMasking).toBe(true);
+    expect(config.loggers).toEqual(new Set(['fileLogger']));
+  });
+
+  it('should set enableLogging to appLogger when specified', () => {
+    vi.stubEnv('ENABLED_LOGGERS', 'appLogger');
+
+    const config = new Config();
+    expect(config.loggers).toEqual(new Set(['appLogger']));
+  });
+
+  it('should set enableLogging to both when both are specified', () => {
+    vi.stubEnv('ENABLED_LOGGERS', 'fileLogger,appLogger');
+
+    const config = new Config();
+    expect(config.loggers).toEqual(new Set(['fileLogger', 'appLogger']));
+  });
+
+  it('should ignore unknown values in ENABLED_LOGGERS', () => {
+    vi.stubEnv('ENABLED_LOGGERS', 'fileLogger,unknown,appLogger');
+
+    const config = new Config();
+    expect(config.loggers).toEqual(new Set(['fileLogger', 'appLogger']));
   });
 
   it('should set maxRequestTimeoutMs to the default value when not specified', () => {
@@ -109,21 +129,21 @@ describe('Config', () => {
     vi.stubEnv('MAX_REQUEST_TIMEOUT_MS', 'abc');
 
     const config = new Config();
-    expect(config.maxRequestTimeoutMs).toBe(TEN_MINUTES_IN_MS);
+    expect(config.maxRequestTimeoutMs).toBe(milliseconds.fromMinutes(10));
   });
 
   it('should set maxRequestTimeoutMs to the default value when specified as a negative number', () => {
     vi.stubEnv('MAX_REQUEST_TIMEOUT_MS', '-100');
 
     const config = new Config();
-    expect(config.maxRequestTimeoutMs).toBe(TEN_MINUTES_IN_MS);
+    expect(config.maxRequestTimeoutMs).toBe(milliseconds.fromMinutes(10));
   });
 
   it('should set maxRequestTimeoutMs to the default value when specified as a number greater than one hour', () => {
-    vi.stubEnv('MAX_REQUEST_TIMEOUT_MS', `${ONE_HOUR_IN_MS + 1}`);
+    vi.stubEnv('MAX_REQUEST_TIMEOUT_MS', `${milliseconds.fromHours(1) + 1}`);
 
     const config = new Config();
-    expect(config.maxRequestTimeoutMs).toBe(TEN_MINUTES_IN_MS);
+    expect(config.maxRequestTimeoutMs).toBe(milliseconds.fromMinutes(10));
   });
 
   it('should set disableSessionManagement to false by default', () => {
@@ -163,6 +183,18 @@ describe('Config', () => {
     expect(config.tableauServerVersionCheckIntervalInHours).toBe(2);
   });
 
+  it('should set passthroughAuthUserSessionCheckIntervalInMinutes to default when not specified', () => {
+    const config = new Config();
+    expect(config.passthroughAuthUserSessionCheckIntervalInMinutes).toBe(10);
+  });
+
+  it('should set passthroughAuthUserSessionCheckIntervalInMinutes to the specified value when specified', () => {
+    vi.stubEnv('PASSTHROUGH_AUTH_USER_SESSION_CHECK_INTERVAL_IN_MINUTES', '2');
+
+    const config = new Config();
+    expect(config.passthroughAuthUserSessionCheckIntervalInMinutes).toBe(2);
+  });
+
   it('should set mcpSiteSettingsCheckIntervalInMinutes to default when not specified', () => {
     const config = new Config();
     expect(config.mcpSiteSettingsCheckIntervalInMinutes).toBe(10);
@@ -175,16 +207,68 @@ describe('Config', () => {
     expect(config.mcpSiteSettingsCheckIntervalInMinutes).toBe(2);
   });
 
-  it('should set enableMcpSiteSettings to false by default', () => {
+  it('should set enableMcpSiteSettings to true by default', () => {
+    const config = new Config();
+    expect(config.enableMcpSiteSettings).toBe(true);
+  });
+
+  it('should set enableMcpSiteSettings to false when specified', () => {
+    vi.stubEnv('ENABLE_MCP_SITE_SETTINGS', 'false');
+
     const config = new Config();
     expect(config.enableMcpSiteSettings).toBe(false);
   });
 
-  it('should set enableMcpSiteSettings to true when specified', () => {
-    vi.stubEnv('ENABLE_MCP_SITE_SETTINGS', 'true');
+  it('should set allowSitesToConfigureRequestOverrides to false by default', () => {
+    const config = new Config();
+    expect(config.allowSitesToConfigureRequestOverrides).toBe(false);
+  });
+
+  it('should set allowSitesToConfigureRequestOverrides to true when specified', () => {
+    vi.stubEnv('ALLOW_SITES_TO_CONFIGURE_REQUEST_OVERRIDES', 'true');
 
     const config = new Config();
-    expect(config.enableMcpSiteSettings).toBe(true);
+    expect(config.allowSitesToConfigureRequestOverrides).toBe(true);
+  });
+
+  it('should set allowSitesToConfigureRequestOverrides to false when set to an invalid value', () => {
+    vi.stubEnv('ALLOW_SITES_TO_CONFIGURE_REQUEST_OVERRIDES', 'yes');
+
+    const config = new Config();
+    expect(config.allowSitesToConfigureRequestOverrides).toBe(false);
+  });
+
+  it('should throw error when ALLOW_SITES_TO_CONFIGURE_REQUEST_OVERRIDES is true but ENABLE_MCP_SITE_SETTINGS is false', () => {
+    vi.stubEnv('ALLOW_SITES_TO_CONFIGURE_REQUEST_OVERRIDES', 'true');
+    vi.stubEnv('ENABLE_MCP_SITE_SETTINGS', 'false');
+
+    expect(() => new Config()).toThrow(
+      'ALLOW_SITES_TO_CONFIGURE_REQUEST_OVERRIDES is "true", but MCP site settings are not enabled.',
+    );
+  });
+
+  it('should set enablePassthroughAuth to false by default', () => {
+    const config = new Config();
+    expect(config.enablePassthroughAuth).toBe(false);
+  });
+
+  it('should set enablePassthroughAuth to true when specified', () => {
+    vi.stubEnv('ENABLE_PASSTHROUGH_AUTH', 'true');
+
+    const config = new Config();
+    expect(config.enablePassthroughAuth).toBe(true);
+  });
+
+  it('should set breakGlassDisableGlobally to false by default', () => {
+    const config = new Config();
+    expect(config.breakGlassDisableGlobally).toBe(false);
+  });
+
+  it('should set breakGlassDisableGlobally to true when specified', () => {
+    vi.stubEnv('BREAK_GLASS_DISABLE_GLOBALLY', 'true');
+
+    const config = new Config();
+    expect(config.breakGlassDisableGlobally).toBe(true);
   });
 
   describe('HTTP server config parsing', () => {
@@ -310,41 +394,6 @@ describe('Config', () => {
       expect(() => new Config()).toThrow(
         'The environment variable CORS_ORIGIN_CONFIG is not a valid array of URLs: ["https://example.com", "invalid"]',
       );
-    });
-  });
-
-  describe('Trust proxy config parsing', () => {
-    it('should set trustProxyConfig to null when TRUST_PROXY_CONFIG is not set', () => {
-      const config = new Config();
-      expect(config.trustProxyConfig).toBe(null);
-    });
-
-    it('should set trustProxyConfig to true when TRUST_PROXY_CONFIG is "true"', () => {
-      vi.stubEnv('TRUST_PROXY_CONFIG', 'true');
-
-      const config = new Config();
-      expect(config.trustProxyConfig).toBe(true);
-    });
-
-    it('should set trustProxyConfig to false when TRUST_PROXY_CONFIG is "false"', () => {
-      vi.stubEnv('TRUST_PROXY_CONFIG', 'false');
-
-      const config = new Config();
-      expect(config.trustProxyConfig).toBe(false);
-    });
-
-    it('should set trustProxyConfig to the specified number when TRUST_PROXY_CONFIG is a valid number', () => {
-      vi.stubEnv('TRUST_PROXY_CONFIG', '1');
-
-      const config = new Config();
-      expect(config.trustProxyConfig).toBe(1);
-    });
-
-    it('should set trustProxyConfig to the specified string when TRUST_PROXY_CONFIG is a valid string', () => {
-      vi.stubEnv('TRUST_PROXY_CONFIG', 'loopback, linklocal, uniquelocal');
-
-      const config = new Config();
-      expect(config.trustProxyConfig).toBe('loopback, linklocal, uniquelocal');
     });
   });
 
@@ -530,14 +579,19 @@ describe('Config', () => {
 
     const defaultOAuthConfig = {
       enabled: true,
+      embeddedAuthzServer: true,
       clientIdSecretPairs: null,
       issuer: 'https://example.com',
       redirectUri: 'https://example.com/Callback',
+      resourceUri: 'http://127.0.0.1:3927',
+      globalResourceUri: '',
       lockSite: true,
       jwePrivateKey: '',
       jwePrivateKeyPath: 'path/to/private.pem',
       jwePrivateKeyPassphrase: undefined,
       dnsServers: ['1.1.1.1', '1.0.0.1'],
+      enforceScopes: true,
+      advertiseApiScopes: false,
       ...defaultOAuthTimeoutMs,
     } as const;
 
@@ -545,14 +599,19 @@ describe('Config', () => {
       const config = new Config();
       expect(config.oauth).toEqual({
         enabled: false,
+        embeddedAuthzServer: true,
         issuer: '',
         clientIdSecretPairs: null,
         redirectUri: '',
+        resourceUri: 'http://127.0.0.1:3927',
+        globalResourceUri: '',
         lockSite: true,
         jwePrivateKey: '',
         jwePrivateKeyPath: '',
         jwePrivateKeyPassphrase: undefined,
         dnsServers: ['1.1.1.1', '1.0.0.1'],
+        enforceScopes: true,
+        advertiseApiScopes: false,
         ...defaultOAuthTimeoutMs,
       });
     });
@@ -601,6 +660,17 @@ describe('Config', () => {
       expect(config.oauth).toEqual({
         ...defaultOAuthConfig,
         lockSite: false,
+      });
+    });
+
+    it('should set globalResourceUri to the specified value when OAUTH_GLOBAL_RESOURCE_URI is set', () => {
+      stubDefaultOAuthEnvVars();
+      vi.stubEnv('OAUTH_GLOBAL_RESOURCE_URI', 'https://global.example.com');
+
+      const config = new Config();
+      expect(config.oauth).toEqual({
+        ...defaultOAuthConfig,
+        globalResourceUri: 'https://global.example.com',
       });
     });
 
@@ -742,6 +812,14 @@ describe('Config', () => {
       });
     });
 
+    it('should throw when OAUTH_CLIENT_ID_SECRET_PAIRS is in an invalid format', () => {
+      vi.stubEnv('OAUTH_CLIENT_ID_SECRET_PAIRS', 'client1-client2');
+
+      expect(() => new Config()).toThrow(
+        'OAUTH_CLIENT_ID_SECRET_PAIRS is in an invalid format: client1-client2. Should be in the format: clientId:secret',
+      );
+    });
+
     it('should set dnsServers to the specified value when OAUTH_CIMD_DNS_SERVERS is set', () => {
       vi.stubEnv('OAUTH_CIMD_DNS_SERVERS', '8.8.8.8,8.8.4.4');
 
@@ -750,100 +828,27 @@ describe('Config', () => {
     });
   });
 
-  describe('parseNumber', () => {
-    it('should return defaultValue when value is undefined', () => {
-      const result = parseNumber(undefined, { defaultValue: 42 });
-      expect(result).toBe(42);
+  describe('CSP allowed domains', () => {
+    it('should use default CSP domains when CSP_ALLOWED_DOMAINS is not set', () => {
+      const config = new Config();
+      expect(config.cspAllowedDomains).toEqual([
+        'https://*.online.tableau.com',
+        'https://*.tableau.com',
+        'https://my-tableau-server.com',
+      ]);
     });
 
-    it('should return defaultValue when value is empty string', () => {
-      const result = parseNumber('', { defaultValue: 42 });
-      expect(result).toBe(42);
-    });
+    it('should parse custom CSP domains when CSP_ALLOWED_DOMAINS is set', () => {
+      vi.stubEnv('CSP_ALLOWED_DOMAINS', 'https://*.example.com,https://test.com');
 
-    it('should return defaultValue when value is whitespace', () => {
-      const result = parseNumber('   ', { defaultValue: 42 });
-      expect(result).toBe(42);
-    });
-
-    it('should return defaultValue when value is not a number', () => {
-      const result = parseNumber('abc', { defaultValue: 42 });
-      expect(result).toBe(42);
-    });
-
-    it('should return defaultValue when value is NaN', () => {
-      const result = parseNumber('NaN', { defaultValue: 42 });
-      expect(result).toBe(42);
-    });
-
-    it('should parse valid integer string', () => {
-      const result = parseNumber('123', { defaultValue: 42 });
-      expect(result).toBe(123);
-    });
-
-    it('should parse valid integer string with leading zeros', () => {
-      const result = parseNumber('007', { defaultValue: 42 });
-      expect(result).toBe(7);
-    });
-
-    it('should parse valid integer string with whitespace', () => {
-      const result = parseNumber('  456  ', { defaultValue: 42 });
-      expect(result).toBe(456);
-    });
-
-    it('should parse valid decimal string', () => {
-      const result = parseNumber('123.45', { defaultValue: 42 });
-      expect(result).toBe(123.45);
-    });
-
-    it('should parse valid decimal string with whitespace', () => {
-      const result = parseNumber('  123.45  ', { defaultValue: 42 });
-      expect(result).toBe(123.45);
-    });
-
-    it('should return defaultValue when value is below minValue', () => {
-      const result = parseNumber('5', { defaultValue: 42, minValue: 10 });
-      expect(result).toBe(42);
-    });
-
-    it('should return defaultValue when value is above maxValue', () => {
-      const result = parseNumber('100', { defaultValue: 42, maxValue: 50 });
-      expect(result).toBe(42);
-    });
-
-    it('should parse valid number when within minValue and maxValue range', () => {
-      const result = parseNumber('25', { defaultValue: 42, minValue: 10, maxValue: 50 });
-      expect(result).toBe(25);
-    });
-
-    it('should parse valid number when value equals minValue', () => {
-      const result = parseNumber('10', { defaultValue: 42, minValue: 10, maxValue: 50 });
-      expect(result).toBe(10);
-    });
-
-    it('should parse valid number when value equals maxValue', () => {
-      const result = parseNumber('50', { defaultValue: 42, minValue: 10, maxValue: 50 });
-      expect(result).toBe(50);
-    });
-
-    it('should use default options when no options provided', () => {
-      const result = parseNumber('123');
-      expect(result).toBe(123);
-    });
-
-    it('should use default defaultValue of 0 when no options provided', () => {
-      const result = parseNumber('abc');
-      expect(result).toBe(0);
-    });
-
-    it('should handle negative numbers with appropriate minValue', () => {
-      const result = parseNumber('-5', { defaultValue: 42, minValue: -10 });
-      expect(result).toBe(-5);
-    });
-
-    it('should return defaultValue for negative numbers when minValue is 0', () => {
-      const result = parseNumber('-5', { defaultValue: 42, minValue: 0 });
-      expect(result).toBe(42);
+      const config = new Config();
+      expect(config.cspAllowedDomains).toEqual([
+        'https://*.online.tableau.com',
+        'https://*.tableau.com',
+        'https://my-tableau-server.com',
+        'https://*.example.com',
+        'https://test.com',
+      ]);
     });
   });
 });

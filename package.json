@@ -1,7 +1,7 @@
 {
   "name": "@tableau/mcp-server",
-  "description": "An MCP server for Tableau, providing a suite of tools that will make it easier for developers to build AI applications that integrate with Tableau.",
-  "version": "1.15.1",
+  "description": "Helping agents see and understand data.",
+  "version": "2.15.1",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/tableau/tableau-mcp.git"
@@ -24,10 +24,8 @@
   },
   "scripts": {
     "build": "tsx src/scripts/build.ts",
-    "build:mcp-app": "vite build --config mcp-app/vite.config.js",
-    "build:mcp-app:watch": "vite build --watch --config mcp-app/vite.config.js",
-    "dev:server": "tsx watch --no-warnings src/index.ts",
-    "dev:docker": "run-p dev:server build:mcp-app:watch",
+    "build:desktop": "tsx src/scripts/build.ts --variant desktop",
+    "build:combined": "tsx src/scripts/build.ts --variant combined",
     "build:dev": "tsx src/scripts/build.ts --dev",
     "build:watch": "tsx src/scripts/build.ts --dev --watch",
     "dev": "tsx watch --env-file=.env --no-warnings src/index.ts",
@@ -44,6 +42,7 @@
     "start:http:apm": "node -r ./build/telemetry/tracing.js build/index.js",
     "start:http:docker": "docker run -p 3927:3927 -i --rm --env-file env.list tableau-mcp",
     "lint": "npm exec eslint",
+    "lint:fix": "npm exec eslint -- --fix",
     "inspect": "npx @modelcontextprotocol/inspector --config config.json --server tableau",
     ":inspect:http": "npx @modelcontextprotocol/inspector --config config.http.json --server tableau",
     "inspect:http": "run-p start:http :inspect:http",
@@ -55,7 +54,8 @@
     "test": "vitest --config ./vitest.config.ts",
     "test:e2e": "vitest --config ./vitest.config.e2e.ts",
     "test:eval": "vitest --config ./vitest.config.eval.ts",
-    "test:oauth": "vitest --config ./vitest.config.oauth.ts",
+    "test:oauth:embedded": "vitest --config ./vitest.config.oauth.embedded.ts",
+    "test:oauth:tableau": "npx playwright test",
     "coverage": "vitest run --config ./vitest.config.ts --coverage",
     "version:major": "npm version major --no-git-tag-version",
     "version:minor": "npm version minor --no-git-tag-version",
@@ -63,11 +63,11 @@
     "docs:start": "npm run start --prefix docs"
   },
   "dependencies": {
-    "adm-zip": "^0.5.16",
-    "@modelcontextprotocol/ext-apps": "^1.1.2",
-    "chart.js": "^4.4.0",
+    "@modelcontextprotocol/ext-apps": "^1.7.2",
     "@modelcontextprotocol/sdk": "^1.26.0",
+    "@xmldom/xmldom": "^0.9.10",
     "@zodios/core": "^10.9.6",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
@@ -75,16 +75,17 @@
     "jose": "^6.0.12",
     "ssrfcheck": "^1.2.0",
     "ts-results-es": "^5.0.1",
+    "xpath": "^0.0.34",
     "zod": "^3.24.3",
     "zod-validation-error": "^4.0.1"
   },
   "devDependencies": {
-    "vite": "^6.0.0",
-    "vite-plugin-singlefile": "^2.3.0",
     "@anthropic-ai/mcpb": "^1.0.0",
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.25.1",
     "@openai/agents": "^0.1.9",
+    "@playwright/test": "^1.58.2",
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/eslint__js": "^8.42.3",
     "@types/express": "^5.0.3",
@@ -99,6 +100,7 @@
     "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-prettier": "^5.2.6",
     "eslint-plugin-simple-import-sort": "^12.1.1",
+    "jsdom": "^29.1.1",
     "npm-run-all": "^4.1.5",
     "openai": "^5.23.2",
     "prettier": "^3.5.3",
@@ -106,6 +108,7 @@
     "tsx": "^4.21.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.31.1",
+    "vite-plugin-singlefile": "^2.3.3",
     "vitest": "^3.1.3"
   },
   "engines": {

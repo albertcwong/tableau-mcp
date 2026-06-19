@@ -1,7 +1,9 @@
 *.local
 .env
 .env.*
+.vscode/
 build/
+cache/
 node_modules/
 junit/
 coverage/
@@ -24,3 +26,14 @@ tmp/
 .cursor/rules/do-not-edit-these-rules-from-mcp-gateway/
 .windsurf/rules/do-not-edit-these-rules-from-mcp-gateway/
 .sfdx/
+
+# MCP Apps
+src/web/apps/dist/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/blob-reports/
+/playwright/.cache/
+/playwright/.auth/

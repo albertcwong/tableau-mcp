@@ -1,10 +1,16 @@
 import { Zodios } from '@zodios/core';
-import { Err, Ok, Result } from 'ts-results-es';
+import { Ok, Result } from 'ts-results-es';
 import z from 'zod';
 
+import {
+  McpToolError,
+  PulseDisabledError,
+  PulseInsightsDisabledError,
+  PulseNotAvailableError,
+} from '../../../errors/mcpToolError.js';
 import { AxiosRequestConfig, isAxiosError } from '../../../utils/axios.js';
 import { pulseApis } from '../apis/pulseApi.js';
-import { Credentials } from '../types/credentials.js';
+import { RestApiCredentials } from '../restApi.js';
 import { PulsePagination } from '../types/pagination.js';
 import {
   pulseBundleRequestSchema,
@@ -27,7 +33,7 @@ import AuthenticatedMethods from './authenticatedMethods.js';
  * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_pulse.htm
  */
 export default class PulseMethods extends AuthenticatedMethods<typeof pulseApis> {
-  constructor(baseUrl: string, creds: Credentials, axiosConfig: AxiosRequestConfig) {
+  constructor(baseUrl: string, creds: RestApiCredentials, axiosConfig: AxiosRequestConfig) {
     super(new Zodios(baseUrl, pulseApis, { axiosConfig }), creds);
   }
 
@@ -135,12 +141,12 @@ export default class PulseMethods extends AuthenticatedMethods<typeof pulseApis>
    *
    * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_pulse.htm#PulseSubscriptionService_ListSubscriptions
    */
-  listPulseMetricSubscriptionsForCurrentUser = async (): Promise<
-    PulseResult<PulseMetricSubscription[]>
-  > => {
+  listPulseMetricSubscriptionsForCurrentUser = async (
+    userId: string,
+  ): Promise<PulseResult<PulseMetricSubscription[]>> => {
     return await guardAgainstPulseDisabled(async () => {
       const response = await this._apiClient.listPulseMetricSubscriptionsForCurrentUser({
-        queries: { user_id: this.userId },
+        queries: { user_id: userId },
         ...this.authHeader,
       });
       return response.subscriptions ?? [];
@@ -189,30 +195,29 @@ export default class PulseMethods extends AuthenticatedMethods<typeof pulseApis>
   };
 }
 
-export type PulseDisabledErrorType = 'tableau-server' | 'pulse-disabled';
+export type PulseResult<T> = Result<T, McpToolError>;
 
-export class PulseDisabledError extends Error {
-  readonly type: PulseDisabledErrorType;
-  readonly httpStatus: number;
+// These Tableau error codes indicate AI-powered Pulse insights are disabled for the site.
+const PULSE_INSIGHTS_DISABLED_ERROR_CODES = ['0x62c06627', '0x8c454877', '0xd0495c24'] as const;
 
-  constructor(type: PulseDisabledErrorType, httpStatus: number) {
-    super(
-      type === 'tableau-server' ? 'Pulse not available on Tableau Server' : 'Pulse is disabled',
-    );
-    this.name = 'PulseDisabledError';
-    this.type = type;
-    this.httpStatus = httpStatus;
+export function hasPulseInsightsDisabledErrorCode(value: unknown): boolean {
+  if (typeof value !== 'string') {
+    return false;
   }
+
+  const normalizedValue = value.toLowerCase();
+  return PULSE_INSIGHTS_DISABLED_ERROR_CODES.some((errorCode) =>
+    normalizedValue.includes(errorCode),
+  );
 }
 
-export type PulseResult<T> = Result<T, PulseDisabledError>;
 async function guardAgainstPulseDisabled<T>(callback: () => Promise<T>): Promise<PulseResult<T>> {
   try {
     return new Ok(await callback());
   } catch (error) {
     if (isAxiosError(error)) {
       if (error.response?.status === 404) {
-        return new Err(new PulseDisabledError('tableau-server', 404));
+        return new PulseNotAvailableError().toErr();
       }
 
       if (
@@ -221,7 +226,16 @@ async function guardAgainstPulseDisabled<T>(callback: () => Promise<T>): Promise
         error.response.headers.validation_code === '400999'
       ) {
         // ntbue-service-chassis/-/blob/main/server/interceptors/site_settings.go
-        return new Err(new PulseDisabledError('pulse-disabled', 400));
+        return new PulseDisabledError().toErr();
+      }
+
+      const tableauErrorCode = error.response?.headers?.tableau_error_code;
+      const responseMessage = error.response?.data?.message;
+      if (
+        hasPulseInsightsDisabledErrorCode(tableauErrorCode) ||
+        hasPulseInsightsDisabledErrorCode(responseMessage)
+      ) {
+        return new PulseInsightsDisabledError().toErr();
       }
     }
 

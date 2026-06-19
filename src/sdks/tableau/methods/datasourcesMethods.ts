@@ -1,19 +1,18 @@
 import { Zodios } from '@zodios/core';
 
-import { getStringResponseHeader } from '../../../utils/axios.js';
-import { AxiosRequestConfig } from '../../../utils/axios.js';
+import { AxiosRequestConfig, getStringResponseHeader } from '../../../utils/axios.js';
 import { datasourcesApis } from '../apis/datasourcesApi.js';
+import { RestApiCredentials } from '../restApi.js';
+import { DataSource } from '../types/dataSource.js';
+import { Pagination } from '../types/pagination.js';
+import { parsePublishResponseXml } from '../utils/parsePublishResponse.js';
 import {
+  APPEND_CHUNK_MAX_BYTES,
   buildPublishMultipartBody,
   buildPublishRequestOnlyBody,
   escapeXml,
-  APPEND_CHUNK_MAX_BYTES,
   SINGLE_CALL_PUBLISH_LIMIT_BYTES,
 } from '../utils/publishMultipart.js';
-import { parsePublishResponseXml } from '../utils/parsePublishResponse.js';
-import { Credentials } from '../types/credentials.js';
-import { DataSource } from '../types/dataSource.js';
-import { Pagination } from '../types/pagination.js';
 import AuthenticatedMethods from './authenticatedMethods.js';
 import FileUploadsMethods from './fileUploadsMethods.js';
 
@@ -27,7 +26,7 @@ import FileUploadsMethods from './fileUploadsMethods.js';
 export default class DatasourcesMethods extends AuthenticatedMethods<typeof datasourcesApis> {
   constructor(
     baseUrl: string,
-    creds: Credentials,
+    creds: RestApiCredentials,
     axiosConfig: AxiosRequestConfig,
     private readonly _fileUploads: FileUploadsMethods,
   ) {
@@ -55,7 +54,9 @@ export default class DatasourcesMethods extends AuthenticatedMethods<typeof data
     });
     const cd = getStringResponseHeader(res.headers, 'content-disposition');
     const filename =
-      cd.match(/filename="([^"]+)"/)?.[1] ?? cd.match(/filename=([^;]+)/)?.[1]?.trim() ?? 'datasource.tdsx';
+      cd.match(/filename="([^"]+)"/)?.[1] ??
+      cd.match(/filename=([^;]+)/)?.[1]?.trim() ??
+      'datasource.tdsx';
     return { data: res.data, filename };
   };
 
@@ -138,7 +139,11 @@ export default class DatasourcesMethods extends AuthenticatedMethods<typeof data
     append?: boolean;
   }): Promise<Record<string, string>> => {
     const filename = name.endsWith('.tdsx') ? name : `${name}.tdsx`;
-    const datasourceType = filename.endsWith('.tdsx') ? 'tdsx' : filename.endsWith('.tds') ? 'tds' : 'tdsx';
+    const datasourceType = filename.endsWith('.tdsx')
+      ? 'tdsx'
+      : filename.endsWith('.tds')
+        ? 'tds'
+        : 'tdsx';
 
     if (uploadSessionId) {
       return this._publishDatasourceWithSession({
@@ -158,7 +163,10 @@ export default class DatasourcesMethods extends AuthenticatedMethods<typeof data
       const chunks = Math.ceil(fileContent.length / APPEND_CHUNK_MAX_BYTES);
       for (let i = 0; i < chunks; i++) {
         const start = i * APPEND_CHUNK_MAX_BYTES;
-        const chunk = fileContent.subarray(start, Math.min(start + APPEND_CHUNK_MAX_BYTES, fileContent.length));
+        const chunk = fileContent.subarray(
+          start,
+          Math.min(start + APPEND_CHUNK_MAX_BYTES, fileContent.length),
+        );
         await this._fileUploads.appendToFileUpload({
           siteId,
           uploadSessionId: sessionId,
@@ -227,15 +235,19 @@ export default class DatasourcesMethods extends AuthenticatedMethods<typeof data
       ? `sites/${siteId}/datasources/${datasourceId}/connections/${connectionId}/data`
       : `sites/${siteId}/datasources/${datasourceId}/data`;
     const url = `${String(baseUrl).replace(/\/$/, '')}/${path}?uploadSessionId=${encodeURIComponent(uploadSessionId)}`;
-    const res = await this._apiClient.axios.patch<{ job?: { id?: string }; 'job-id'?: string }>(url, { actions }, {
-      ...this.authHeader,
-      headers: {
-        ...this.authHeader.headers,
-        'Content-Type': 'application/json',
-        RequestID: requestId,
+    const res = await this._apiClient.axios.patch<{ job?: { id?: string }; 'job-id'?: string }>(
+      url,
+      { actions },
+      {
+        ...this.authHeader,
+        headers: {
+          ...this.authHeader.headers,
+          'Content-Type': 'application/json',
+          RequestID: requestId,
+        },
+        responseType: 'json',
       },
-      responseType: 'json',
-    });
+    );
     const jobId = res.data?.job?.id ?? res.data?.['job-id'];
     if (!jobId) throw new Error('Update datasource data did not return jobId');
     return { jobId };
@@ -274,5 +286,58 @@ export default class DatasourcesMethods extends AuthenticatedMethods<typeof data
       responseType: 'text',
     });
     return parsePublishResponseXml(res.data);
+  };
+
+  /**
+   * Deletes the specified published data source from the site.
+   *
+   * On Tableau Cloud the data source is moved to the recycle bin and can be restored
+   * for a limited time before permanent removal.
+   *
+   * Required scopes (Tableau Cloud): `tableau:datasources:delete`
+   *
+   * @param datasourceId - The ID of the data source to delete.
+   * @param siteId - The Tableau site ID
+   * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_data_sources.htm#delete_data_source
+   */
+  deleteDatasource = async ({
+    datasourceId,
+    siteId,
+  }: {
+    datasourceId: string;
+    siteId: string;
+  }): Promise<void> => {
+    await this._apiClient.deleteDatasource(undefined, {
+      params: { siteId, datasourceId },
+      ...this.authHeader,
+    });
+  };
+
+  /**
+   * Adds one or more tags to the specified data source.
+   *
+   * Required scopes (Tableau Cloud): `tableau:datasource_tags:update`
+   *
+   * @param datasourceId - The ID of the data source to tag.
+   * @param siteId - The Tableau site ID
+   * @param tagLabels - The tag labels to add.
+   * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_data_sources.htm#add_tags_to_data_source
+   */
+  addTagsToDatasource = async ({
+    datasourceId,
+    siteId,
+    tagLabels,
+  }: {
+    datasourceId: string;
+    siteId: string;
+    tagLabels: ReadonlyArray<string>;
+  }): Promise<void> => {
+    await this._apiClient.addTagsToDatasource(
+      { tags: { tag: tagLabels.map((label) => ({ label })) } },
+      {
+        params: { siteId, datasourceId },
+        ...this.authHeader,
+      },
+    );
   };
 }

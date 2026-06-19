@@ -2,7 +2,7 @@ import { Zodios } from '@zodios/core';
 
 import { AxiosRequestConfig } from '../../../utils/axios.js';
 import { projectsApis } from '../apis/projectsApi.js';
-import { Credentials } from '../types/credentials.js';
+import { RestApiCredentials } from '../restApi.js';
 import { Pagination } from '../types/pagination.js';
 import { Project } from '../types/project.js';
 import AuthenticatedMethods from './authenticatedMethods.js';
@@ -15,7 +15,7 @@ import AuthenticatedMethods from './authenticatedMethods.js';
  * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_projects.htm
  */
 export default class ProjectsMethods extends AuthenticatedMethods<typeof projectsApis> {
-  constructor(baseUrl: string, creds: Credentials, axiosConfig: AxiosRequestConfig) {
+  constructor(baseUrl: string, creds: RestApiCredentials, axiosConfig: AxiosRequestConfig) {
     super(new Zodios(baseUrl, projectsApis, { axiosConfig }), creds);
   }
 
@@ -30,18 +30,18 @@ export default class ProjectsMethods extends AuthenticatedMethods<typeof project
    * @param pageNumber - The offset for paging. The default is 1.
    * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_projects.htm#query_projects
    */
-  listProjects = async ({
+  queryProjects = async ({
     siteId,
     filter,
     pageSize,
     pageNumber,
   }: {
     siteId: string;
-    filter?: string;
+    filter: string;
     pageSize?: number;
     pageNumber?: number;
   }): Promise<{ pagination: Pagination; projects: Project[] }> => {
-    const response = await this._apiClient.listProjects({
+    const response = await this._apiClient.queryProjects({
       params: { siteId },
       queries: { filter, pageSize, pageNumber },
       ...this.authHeader,

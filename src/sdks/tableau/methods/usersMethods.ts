@@ -2,53 +2,93 @@ import { Zodios } from '@zodios/core';
 
 import { AxiosRequestConfig } from '../../../utils/axios.js';
 import { usersApis } from '../apis/usersApi.js';
-import { Credentials } from '../types/credentials.js';
+import { RestApiCredentials } from '../restApi.js';
 import { Pagination } from '../types/pagination.js';
 import { User } from '../types/user.js';
 import AuthenticatedMethods from './authenticatedMethods.js';
 
+export interface ListUsersResult {
+  users: User[];
+  pagination?: Pagination;
+}
+
 /**
- * Users methods of the Tableau Server REST API
+ * Users and Groups methods of the Tableau Server REST API
  *
  * @export
  * @class UsersMethods
  * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_users_and_groups.htm
  */
 export default class UsersMethods extends AuthenticatedMethods<typeof usersApis> {
-  constructor(baseUrl: string, creds: Credentials, axiosConfig: AxiosRequestConfig) {
+  constructor(baseUrl: string, creds: RestApiCredentials, axiosConfig: AxiosRequestConfig) {
     super(new Zodios(baseUrl, usersApis, { axiosConfig }), creds);
   }
 
   /**
-   * Returns the users on a site.
+   * Returns a list of users on the site with pagination metadata.
    *
-   * Required scopes: `tableau:users:read`
+   * Required scopes (Tableau Cloud): `tableau:users:read`
    *
    * @param siteId - The Tableau site ID
-   * @param filter - The filter string to filter users by
-   * @param pageSize - The number of items to return in one response. The minimum is 1. The maximum is 1000. The default is 100.
-   * @param pageNumber - The offset for paging. The default is 1.
+   * @param pageSize - Number of users per page (default 100, max 1000)
+   * @param pageNumber - Page offset (default 1)
+   * @param includeUserCount - Include total user count in pagination metadata
+   * @param includeSSOInfo - Include SSO/SAML info per user
+   * @param includeGroups - Include group memberships per user
    * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_users_and_groups.htm#get_users_on_site
    */
-  queryUsersForSite = async ({
+  listUsers = async ({
     siteId,
-    filter,
     pageSize,
     pageNumber,
+    includeUserCount,
+    includeSSOInfo,
+    includeGroups,
   }: {
     siteId: string;
-    filter: string;
     pageSize?: number;
     pageNumber?: number;
-  }): Promise<{ pagination: Pagination; users: User[] }> => {
-    const response = await this._apiClient.queryUsersForSite({
+    includeUserCount?: boolean;
+    includeSSOInfo?: boolean;
+    includeGroups?: boolean;
+  }): Promise<ListUsersResult> => {
+    const response = await this._apiClient.listUsers({
       params: { siteId },
-      queries: { filter, pageSize, pageNumber },
+      queries: {
+        pageSize,
+        pageNumber,
+        includeUserCount,
+        includeSSOInfo,
+        includeGroups,
+      },
       ...this.authHeader,
     });
     return {
+      users: response.users.user,
       pagination: response.pagination,
-      users: response.users.user ?? [],
     };
+  };
+
+  /**
+   * Returns information about the specified user.
+   *
+   * Required scopes (Tableau Cloud): `tableau:users:read`
+   *
+   * @param siteId - The Tableau site ID
+   * @param userId - The user ID
+   * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_users_and_groups.htm#query_user_on_site
+   */
+  queryUserOnSite = async ({
+    siteId,
+    userId,
+  }: {
+    siteId: string;
+    userId: string;
+  }): Promise<User> => {
+    const { user } = await this._apiClient.getUserOnSite({
+      params: { siteId, userId },
+      ...this.authHeader,
+    });
+    return user;
   };
 }

@@ -18,9 +18,10 @@ The URL of the Tableau server.
 
 ## `SITE_NAME`
 
-The name of the Tableau site to use.
+The Content URL of the Tableau site to use. This may differ from the site's display name (e.g.,
+Content URL `Internal` vs display name `[INTERNAL] My Company`).
 
-- For Tableau Cloud, specify your site name.
+- For Tableau Cloud, specify your site's Content URL.
 - For Tableau Server, you may leave this value blank to use the default site.
 - Required unless [`AUTH`](#auth) is `oauth`.
 
@@ -48,40 +49,41 @@ The method the MCP server uses to authenticate to the Tableau REST APIs.
 
 <hr />
 
-## `ENABLE_SERVER_LOGGING`
+## `ENABLED_LOGGERS`
 
-When `true`, the server will continue sending notifications to MCP clients, but will now also write
-them to local files in the directory specified in the
-[`SERVER_LOG_DIRECTORY`](#server_log_directory) environment variable. Notifications include tool
-calls and their arguments as well as HTTP traces for the requests and responses to the Tableau REST
-APIs.
+A comma-separated list of loggers to enable.
 
-- Default: `false`
+- Default: `appLogger`
+- Possible values (may be combined): `fileLogger`, `appLogger`
+  - `fileLogger` — writes log entries and MCP notifications normally only sent to clients to hourly
+    rotating files in the directory specified by[`FILE_LOGGER_DIRECTORY`](#file_logger_directory).
+    Notifications include tool calls and their arguments as well as HTTP traces for the requests and
+    responses to the Tableau REST APIs.
+  - `appLogger` — writes log entries to stdout as JSON. Enabled by default when transport is `http`.
 - The log file names are in the format `YYYY-MM-DDTHH-00-00-000Z.log` e.g.
   `2025-10-15T22-00-00-000Z.log` meaning this log file contains all log messages for hour 22 of
   2025-10-15 in UTC time. All log entries for a given hour of the day are appended to the same file.
-- Each line in the log file is a JSON object with the following properties:
+- Each line in the log file is a JSON object with a timestamp and additional properties:
 
   - `timestamp`: The timestamp of the log message in UTC time.
-  - `username`: For tool calls, the username of the user who made the call. This is only present
-    when OAuth is enabled and has the user context.
   - `level`: The logging level of the log message.
   - `logger`: The logger of the log message. This is typically `rest-api` for HTTP traces or
     `tableau-mcp` for tool calls.
   - `message`: The log message itself. This may be a string or a JSON object.
 
-- All notifications are written to the local log files regardless of the server's currently
-  configured minimum logging level, since that only applies to notifications sent to MCP clients.
-  See [`DEFAULT_LOG_LEVEL`](#default_log_level) for more information.
+- All notifications are written to the local log files regardless of the notification level, since
+  [`DEFAULT_NOTIFICATION_LEVEL`](#default_notification_level) only applies to notifications sent to
+  MCP clients. Server log output (stderr/console) is controlled separately by
+  [`LOG_LEVEL`](#log_level).
 - Secrets are masked by default in the log files. To reveal them for debugging purposes, set the
   [`DISABLE_LOG_MASKING`](#disable_log_masking) environment variable to `true`.
 
 <hr />
 
-## `SERVER_LOG_DIRECTORY`
+## `FILE_LOGGER_DIRECTORY`
 
-The directory server logs are written to when [`ENABLE_SERVER_LOGGING`](#enable_server_logging) is
-`true`.
+The directory server logs are written to when [`ENABLED_LOGGERS`](#enabled_loggers) includes
+`fileLogger`.
 
 - Default: `[build directory]/logs` i.e. `build/logs`.
 - The server will attempt to create the directory if it does not exist.
@@ -89,9 +91,9 @@ The directory server logs are written to when [`ENABLE_SERVER_LOGGING`](#enable_
 
 <hr />
 
-## `DEFAULT_LOG_LEVEL`
+## `DEFAULT_NOTIFICATION_LEVEL`
 
-The default logging level of the server.
+The default minimum level for sending notifications to MCP clients.
 
 - Default: `debug`
 - Possible values:
@@ -104,12 +106,35 @@ The default logging level of the server.
   - `alert`
   - `emergency`
 
-This value determines the minimum log level in which to send notifications to MCP clients. That is,
-if the server's currently configured minimum logging level is `debug`, all log messages will be sent
-to MCP clients. If the level is set to `error`, only log messages with a level of `error` or higher
-will be sent. Note that MCP clients can
-[change the minimum log level](https://modelcontextprotocol.io/specification/2025-06-18/server/utilities/logging#setting-log-level)
+This value determines the minimum level at which to send notifications to MCP clients. That is, if
+set to `debug`, all notifications will be sent. If set to `error`, only notifications with a level
+of `error` or higher will be sent. Note that MCP clients can
+[change the minimum level](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/logging#setting-log-level)
 any time they want.
+
+Note: this variable was named DEFAULT_LOG_LEVEL until version 2.0.0
+
+<hr />
+
+## `LOG_LEVEL`
+
+The minimum severity level for server log output (stderr on stdio transport, console on http
+transport, and file logger).
+
+- Default: `info`
+- Possible values:
+  - `debug` — all log entries
+  - `info`
+  - `notice`
+  - `warning`
+  - `error`
+  - `critical`
+  - `alert`
+  - `emergency`
+
+Log entries with a level below the configured value are silently dropped. This is independent of
+[`DEFAULT_NOTIFICATION_LEVEL`](#default_notification_level), which controls MCP client
+notifications.
 
 <hr />
 
@@ -118,6 +143,19 @@ any time they want.
 Disable masking of credentials in MCP client notifications and server logs. For debug purposes only.
 
 - Default: `false`
+
+<hr />
+
+## `NOTIFICATION_PAYLOAD_MAX_BYTES`
+
+The maximum string length included in MCP client notifications and server logs before large payloads
+are redacted or truncated.
+
+- Default: `8192`
+- Must be a positive number.
+
+Binary payloads, large SVG/XML payloads, and large base64 image payloads are redacted. Other strings
+larger than this value are truncated.
 
 <hr />
 
@@ -154,11 +192,11 @@ data source][tab-connect-ds].
 ## `INCLUDE_TOOLS`
 
 A comma-separated list of tool or tool group names to include in the server. Only these tools will
-be available.
+be available. This variable is site overridable, see [Site Settings](site-settings.md).
 
 - Default: Empty string (_all_ are included)
 - For a list of available tools and groups, see
-  [toolName.ts](https://github.com/tableau/tableau-mcp/blob/main/src/tools/toolName.ts).
+  [toolName.ts](https://github.com/tableau/tableau-mcp/blob/main/src/tools/web/toolName.ts).
 - Mixing tool names and group names is allowed.
 
 <hr />
@@ -166,7 +204,7 @@ be available.
 ## `EXCLUDE_TOOLS`
 
 A comma-separated list of tool or tool group names to exclude from the server. All other tools will
-be available.
+be available. This variable is site overridable, see [Site Settings](site-settings.md).
 
 - Default: Empty string (_none_ are excluded)
 - Cannot be provided with `INCLUDE_TOOLS`.
@@ -185,13 +223,14 @@ The maximum timeout for requests to the Tableau Server REST API.
 ## `MAX_RESULT_LIMIT`
 
 The maximum number of results that every tool with a `limit` parameter can return when no
-tool-specific max result limit is set in the [`MAX_RESULT_LIMITS`](#max_result_limits) environment
-variable.
+tool-specific max result limit is set in the [`MAX_RESULT_LIMITS`](#max_result_limits) variable.
+This variable is site and request overridable, see [Site Settings](site-settings.md) and
+[Request Overrides](request-overrides.md).
 
 :::warning
 
-Take care when setting this value and be sure to set appropriate tool-specific limits in the
-[`MAX_RESULT_LIMITS`](#max_result_limits) environment variable.
+Take care when setting this value and be sure to set appropriate tool-specific limits using the
+[`MAX_RESULT_LIMITS`](#max_result_limits) variable.
 
 :::
 
@@ -203,7 +242,8 @@ Take care when setting this value and be sure to set appropriate tool-specific l
 ## `MAX_RESULT_LIMITS`
 
 A comma-separated list of tool names (or tool group names) and the maximum number of results that
-each tool (or tools in the group) can return.
+each tool (or tools in the group) can return. This variable is site and request overridable, see
+[Site Settings](site-settings.md) and [Request Overrides](request-overrides.md).
 
 :::info
 
@@ -224,14 +264,14 @@ This means that:
 
 - Default: Empty string (_no limits_)
 - For a list of available tools and groups, see
-  [toolName.ts](https://github.com/tableau/tableau-mcp/blob/main/src/tools/toolName.ts).
+  [toolName.ts](https://github.com/tableau/tableau-mcp/blob/main/src/tools/web/toolName.ts).
 - Only applies to tools that have a `limit` parameter and return an array of items.
 - Tool names take precedence over tool group names. That is, `datasource:1000,list-datasources:20`
   means that the `list-datasources` tool can return up to 20 data sources but the `query-datasource`
   tool can only return up to 1000 results.
-- If a tool-specific limit is not set, the global limit specified by the
-  [`MAX_RESULT_LIMIT`](#max_result_limit) environment variable will be used instead.
-- Each limit must be a positive number.
+- If a tool is not included in the comma-separated list, the global limit specified by the
+  [`MAX_RESULT_LIMIT`](#max_result_limit) variable will be used instead.
+- Each limit must be a positive number, or `*` to indicate unbounded results.
 
 <hr />
 
@@ -239,7 +279,8 @@ This means that:
 
 Disables requests that are made to the VizQl Data Service for validating queries in the
 [`query-datasource`](../../tools/data-qna/query-datasource.md) tool. Does not disable the ability to
-query the datasource.
+query the datasource. This variable is site and request overridable, see
+[Site Settings](site-settings.md) and [Request Overrides](request-overrides.md).
 
 - Default: `false`
 - When `true`, skips validation of queries against metadata results and validation of SET and MATCH
@@ -263,7 +304,9 @@ Disable validation of SET and MATCH filter values in the
 ## `DISABLE_METADATA_API_REQUESTS`
 
 Disables `graphql` requests to the Tableau Metadata API in the
-[`get-datasource-metadata`](../../tools/data-qna/get-datasource-metadata.md) tool.
+[`get-datasource-metadata`](../../tools/data-qna/get-datasource-metadata.md) tool. This variable is
+site and request overridable, see [Site Settings](site-settings.md) and
+[Request Overrides](request-overrides.md).
 
 - Default: `false`
 - When `true`, skips requests to the `graphql` endpoint that provides additional context to field
@@ -278,7 +321,7 @@ Disables `graphql` requests to the Tableau Metadata API in the
 
 When `false` (the default) and using the Streamable HTTP transport, the MCP server will create and
 manage sessions as per the
-[Session Management](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#session-management)
+[Session Management](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports#session-management)
 section of the MCP spec. The only state persisted in the session from one request to another is
 information about the client's identity, capabilities, and protocol version compatibility.
 
@@ -342,6 +385,22 @@ interface TelemetryProvider {
 
 <hr />
 
+## `LATENCY_METRIC_NAME`
+
+The name of the histogram metric used to record HTTP request latency for tool calls.
+
+- Default: `http_server_1agg1_request_duration`
+- Only recorded for requests that contain a tool call (non-tool requests such as `initialize` are
+  not tracked).
+
+**Example:**
+
+```bash
+LATENCY_METRIC_NAME=http_server_1agg1_request_duration
+```
+
+<hr />
+
 ## `PRODUCT_TELEMETRY_ENABLED`
 
 Enables product telemetry for tool usage tracking.
@@ -349,10 +408,98 @@ Enables product telemetry for tool usage tracking.
 - Default: `true`
 - When `true`, the server will send telemetry events to Tableau's telemetry endpoint for each tool
   call, including tool name, request ID, session ID, and site name.
-- Set to `false` to disable product telemetry. Read https://help.tableau.com/current/server/en-us/usage_data_basic_product_data.htm for more information
+- Set to `false` to disable product telemetry. Read
+  https://help.tableau.com/current/server/en-us/usage_data_basic_product_data.htm for more
+  information
 
 [mcp-transport]: https://modelcontextprotocol.io/docs/concepts/transports
 [tab-ds-connections]:
   https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_data_sources.htm#query_data_source_connections
 [tab-connect-ds]:
   https://help.tableau.com/current/api/vizql-data-service/en-us/docs/vds_create_queries.html#connect-to-your-data-source
+
+<hr />
+
+## `ADMIN_TOOLS_ENABLED`
+
+Enables admin-only tools that require site administrator permissions.
+
+- Default: `false`
+- When `true`, enables tools that are restricted to Tableau site administrators:
+  - [`list-extract-refresh-tasks`](../../tools/tasks/list-extract-refresh-tasks.md)
+  - [`list-jobs`](../../tools/jobs/list-jobs.md)
+  - [`query-admin-insights-ts-events`](../../tools/admin-insights/query-admin-insights-ts-events.md)
+  - [`query-admin-insights-site-content`](../../tools/admin-insights/query-admin-insights-site-content.md)
+  - [`get-stale-content-report`](../../tools/admin-insights/get-stale-content-report.md)
+- These tools require the user to have one of the following site roles:
+  - SiteAdministratorCreator
+  - SiteAdministratorExplorer
+  - ServerAdministrator
+- Admin tools perform runtime role verification and will return a 403 error if the user does not have the required permissions.
+
+<hr />
+
+## `ADMIN_GATE_CACHE_TTL_MINUTES`
+
+TTL (in minutes) for caches used by admin-only tools. Affects:
+- Admin role lookups (`assertAdmin`)
+- Admin Insights dataset LUID resolution
+- Project ID → name resolution used by `get-stale-content-report`
+
+- Default: `5`
+- Minimum: `1`
+- Maximum: `1440` (24 hours)
+
+Tune lower if site role / project metadata changes need to propagate faster. Tune higher under memory pressure to reduce REST traffic.
+
+<hr />
+
+## `STALE_CONTENT_MIN_AGE_DAYS`
+
+Default minimum days since last access for content to be considered stale by the [`get-stale-content-report`](../../tools/admin-insights/get-stale-content-report.md) tool. Callers can pass an explicit `minAgeDays` argument to override per-call.
+
+- Default: `90`
+- Minimum: `1`
+- Maximum: `3650` (10 years)
+
+Overridable per-site via [Site Settings](site-settings.md) and per-request via [Request Overrides](request-overrides.md#stale_content_min_age_days).
+
+<hr />
+
+## `BREAK_GLASS_DISABLE_GLOBALLY`
+
+Can be used to force all MCP tools to return a "service unavailable" error message. Use with
+discretion.
+
+- Default: `false`
+- When `true`, all tools will return the below result:
+
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "The Tableau MCP server is temporarily unavailable. Please try again later."
+    }
+  ],
+  "isError": true
+}
+```
+
+<hr />
+
+## `CSP_ALLOWED_DOMAINS`
+
+A comma-separated list of domains to allow in the Content-Security-Policy header for MCP apps (when the `mcp-apps` feature is enabled).
+
+- Default: `https://*.online.tableau.com,https://*.tableau.com`
+- The configured [`SERVER`](#server) origin is automatically appended to this list.
+- Use this to quickly add or modify allowed domains without requiring a code change and release.
+
+**Example:**
+
+```bash
+CSP_ALLOWED_DOMAINS=https://*.mycompany.tableau.com,https://*.online.tableau.com
+```
+
+This allows embedding Tableau visualizations from custom Tableau Server domains in addition to the default Tableau Cloud domains.
