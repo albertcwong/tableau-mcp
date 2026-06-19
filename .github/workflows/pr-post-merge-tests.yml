@@ -8,6 +8,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # E2E/OAuth tests require Tableau-server secrets that only exist on the upstream repo.
+    # Skip on forks so they don't fail on every push.
+    if: github.repository == 'tableau/tableau-mcp'
 
     steps:
       - uses: actions/checkout@v4
