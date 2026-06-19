@@ -48,7 +48,8 @@ type JwtScopes =
   | 'tableau:flows:create'
   | 'tableau:file_uploads:create'
   | 'tableau:hyper_data:update'
-  | 'tableau:tasks:run';
+  | 'tableau:tasks:run'
+  | 'tableau:sites:read';
 
 export type RestApiArgs = Pick<
   TableauWebRequestHandlerExtra,

@@ -2,14 +2,11 @@ import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { Ok } from 'ts-results-es';
 import { z } from 'zod';
 
-import { getConfig } from '../../config.js';
-import { useRestApi } from '../../restApiInstance.js';
-import { APPEND_CHUNK_MAX_BYTES } from '../../sdks/tableau/utils/publishMultipart.js';
-import { Server } from '../../server.js';
-import { getTableauAuthInfo } from '../../server/oauth/getTableauAuthInfo.js';
-import { createProductTelemetryBase } from '../../telemetry/productTelemetry/telemetryForwarder.js';
-import { getConfigWithOverrides } from '../../utils/mcpSiteSettings.js';
-import { Tool } from '../tool.js';
+import { ArgsValidationError, UnknownError } from '../../../errors/mcpToolError.js';
+import { useRestApi } from '../../../restApiInstance.js';
+import { APPEND_CHUNK_MAX_BYTES } from '../../../sdks/tableau/utils/publishMultipart.js';
+import { WebMcpServer } from '../../../server.web.js';
+import { WebTool } from '../tool.js';
 
 const actionSchema = z
   .object({
@@ -40,8 +37,10 @@ const paramsSchema = {
   connectionId: z.string().optional(),
 };
 
-export const getUpdateDatasourceDataTool = (server: Server): Tool<typeof paramsSchema> => {
-  const tool = new Tool({
+type UpdateResult = { jobId: string };
+
+export const getUpdateDatasourceDataTool = (server: WebMcpServer): WebTool<typeof paramsSchema> => {
+  const updateDatasourceDataTool = new WebTool({
     server,
     name: 'update-datasource-data',
     description:
@@ -60,82 +59,10 @@ export const getUpdateDatasourceDataTool = (server: Server): Tool<typeof paramsS
         sourceTables,
         connectionId,
       },
-      { requestId, sessionId, authInfo, signal },
+      extra,
     ): Promise<CallToolResult> => {
-      if (actions.length === 0) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: 'actions must not be empty.' }],
-        };
-      }
-
-      if (!payloadHyperBase64 && (!records || !columns)) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: 'text',
-              text: 'Provide either payloadHyperBase64 or both records and columns.',
-            },
-          ],
-        };
-      }
-
-      let hyperBase64 = payloadHyperBase64;
-      if (!hyperBase64 && records && columns) {
-        try {
-          const { createHyperFromRecords } = await import('../../utils/createHyperFromRecords.js');
-          hyperBase64 = await createHyperFromRecords({
-            tableName: tableName ?? 'Extract',
-            schemaName: schemaName ?? 'Extract',
-            columns,
-            records,
-          });
-        } catch (err) {
-          return {
-            isError: true,
-            content: [
-              {
-                type: 'text',
-                text: `Failed to create Hyper file from records: ${
-                  err instanceof Error ? err.message : String(err)
-                }`,
-              },
-            ],
-          };
-        }
-      }
-
-      if (sourceTables) {
-        for (const a of actions) {
-          const st = a['source-table'];
-          if (st && !sourceTables.includes(st)) {
-            return {
-              isError: true,
-              content: [
-                {
-                  type: 'text',
-                  text: `Action source-table "${st}" not in sourceTables [${sourceTables.join(', ')}].`,
-                },
-              ],
-            };
-          }
-        }
-      }
-      const config = getConfig();
-      const restApiArgs = {
-        config,
-        requestId,
-        server,
-        signal,
-        authInfo: getTableauAuthInfo(authInfo),
-      };
-      await getConfigWithOverrides({ restApiArgs });
-
-      return await tool.logAndExecute<{ jobId: string }>({
-        requestId,
-        sessionId,
-        authInfo,
+      return await updateDatasourceDataTool.logAndExecute<UpdateResult>({
+        extra,
         args: {
           datasourceId,
           actions,
@@ -147,14 +74,54 @@ export const getUpdateDatasourceDataTool = (server: Server): Tool<typeof paramsS
           sourceTables,
           connectionId,
         },
-        productTelemetryBase: createProductTelemetryBase(config, authInfo),
         callback: async () => {
+          if (actions.length === 0) {
+            return new ArgsValidationError('actions must not be empty.').toErr();
+          }
+
+          if (!payloadHyperBase64 && (!records || !columns)) {
+            return new ArgsValidationError(
+              'Provide either payloadHyperBase64 or both records and columns.',
+            ).toErr();
+          }
+
+          if (sourceTables) {
+            for (const a of actions) {
+              const st = a['source-table'];
+              if (st && !sourceTables.includes(st)) {
+                return new ArgsValidationError(
+                  `Action source-table "${st}" not in sourceTables [${sourceTables.join(', ')}].`,
+                ).toErr();
+              }
+            }
+          }
+
+          let hyperBase64 = payloadHyperBase64;
+          if (!hyperBase64 && records && columns) {
+            try {
+              const { createHyperFromRecords } =
+                await import('../../../utils/createHyperFromRecords.js');
+              hyperBase64 = await createHyperFromRecords({
+                tableName: tableName ?? 'Extract',
+                schemaName: schemaName ?? 'Extract',
+                columns,
+                records,
+              });
+            } catch (err) {
+              return new UnknownError(
+                `Failed to create Hyper file from records: ${
+                  err instanceof Error ? err.message : String(err)
+                }`,
+              ).toErr();
+            }
+          }
+
           const result = await useRestApi({
-            ...restApiArgs,
-            jwtScopes: ['tableau:hyper_data:update', 'tableau:file_uploads:create'],
+            ...extra,
+            jwtScopes: updateDatasourceDataTool.requiredApiScopes,
             callback: async (api) => {
               const fileContent = Buffer.from(hyperBase64!, 'base64');
-              const sessionId = await api.fileUploadsMethods.initiateFileUpload({
+              const uploadSessionId = await api.fileUploadsMethods.initiateFileUpload({
                 siteId: api.siteId,
               });
               const chunks = Math.ceil(fileContent.length / APPEND_CHUNK_MAX_BYTES);
@@ -167,7 +134,7 @@ export const getUpdateDatasourceDataTool = (server: Server): Tool<typeof paramsS
                 );
                 await api.fileUploadsMethods.appendToFileUpload({
                   siteId: api.siteId,
-                  uploadSessionId: sessionId,
+                  uploadSessionId,
                   sequenceId: i + 1,
                   filename,
                   fileContent: chunk,
@@ -177,9 +144,9 @@ export const getUpdateDatasourceDataTool = (server: Server): Tool<typeof paramsS
                 siteId: api.siteId,
                 datasourceId,
                 connectionId,
-                uploadSessionId: sessionId,
+                uploadSessionId,
                 actions: actions as Array<Record<string, unknown>>,
-                requestId: requestId.toString(),
+                requestId: extra.requestId.toString(),
               });
               return { jobId };
             },
@@ -188,14 +155,11 @@ export const getUpdateDatasourceDataTool = (server: Server): Tool<typeof paramsS
         },
         constrainSuccessResult: (r) => ({
           type: 'success' as const,
-          result: {
-            ...r,
-            message:
-              'Update job scheduled. Re-query the datasource after a short delay to confirm write success.',
-          },
+          result: r,
         }),
       });
     },
   });
-  return tool;
+
+  return updateDatasourceDataTool;
 };

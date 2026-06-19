@@ -28,7 +28,13 @@ export type McpScope =
   | 'tableau:mcp:workbook:delete'
   | 'tableau:mcp:jobs:read'
   | 'tableau:mcp:datasource:delete'
-  | 'tableau:mcp:users:read';
+  | 'tableau:mcp:users:read'
+  | 'tableau:mcp:datasource:write'
+  | 'tableau:mcp:workbook:write'
+  | 'tableau:mcp:flow:read'
+  | 'tableau:mcp:flow:write'
+  | 'tableau:mcp:tasks:run'
+  | 'tableau:mcp:site:read';
 
 export type TableauApiScope =
   | 'tableau:content:read'
@@ -48,7 +54,16 @@ export type TableauApiScope =
   | 'tableau:datasource_tags:update'
   | 'tableau:datasources:delete'
   | 'tableau:jobs:read'
-  | 'tableau:users:read';
+  | 'tableau:users:read'
+  | 'tableau:workbooks:download'
+  | 'tableau:datasources:create'
+  | 'tableau:workbooks:create'
+  | 'tableau:flows:download'
+  | 'tableau:flows:create'
+  | 'tableau:file_uploads:create'
+  | 'tableau:hyper_data:update'
+  | 'tableau:tasks:run'
+  | 'tableau:sites:read';
 
 /**
  * Default scopes supported by the MCP server
@@ -69,6 +84,12 @@ export const DEFAULT_SCOPES_SUPPORTED: ReadonlyArray<McpScope> = [
   'tableau:mcp:view:download',
   'tableau:mcp:pulse:read',
   'tableau:mcp:insight:create',
+  'tableau:mcp:datasource:write',
+  'tableau:mcp:workbook:write',
+  'tableau:mcp:flow:read',
+  'tableau:mcp:flow:write',
+  'tableau:mcp:tasks:run',
+  'tableau:mcp:site:read',
 ];
 
 export const RESOURCE_ACCESS_CHECKER_REQUIRED_API_SCOPES: ReadonlyArray<TableauApiScope> = [
@@ -281,6 +302,63 @@ const toolScopeMap: Record<
       'tableau:mcp_site_settings:read',
       'tableau:users:read',
     ]),
+  },
+  // Download tools: read content and stream the packaged file. Datasource/workbook go through
+  // the resourceAccessChecker (tool scoping), so they also need content:read + mcp_site_settings:read.
+  'download-datasource': {
+    mcp: ['tableau:mcp:datasource:read'],
+    api: new Set(['tableau:content:read', ...RESOURCE_ACCESS_CHECKER_REQUIRED_API_SCOPES]),
+  },
+  'download-workbook': {
+    mcp: ['tableau:mcp:workbook:read'],
+    api: new Set([
+      'tableau:content:read',
+      'tableau:workbooks:download',
+      ...RESOURCE_ACCESS_CHECKER_REQUIRED_API_SCOPES,
+    ]),
+  },
+  'download-flow': {
+    mcp: ['tableau:mcp:flow:read'],
+    api: new Set(['tableau:flows:download', 'tableau:content:read']),
+  },
+  // No Tableau REST API call — reads a previously downloaded server-internal temp file.
+  'get-downloaded-file': {
+    mcp: [],
+    api: new Set<TableauApiScope>(),
+  },
+  // Publish tools: create content; large files also initiate a file upload session.
+  'publish-datasource': {
+    mcp: ['tableau:mcp:datasource:write'],
+    api: new Set(['tableau:datasources:create', 'tableau:file_uploads:create']),
+  },
+  'publish-workbook': {
+    mcp: ['tableau:mcp:workbook:write'],
+    api: new Set(['tableau:workbooks:create', 'tableau:file_uploads:create']),
+  },
+  'publish-flow': {
+    mcp: ['tableau:mcp:flow:write'],
+    api: new Set(['tableau:flows:create', 'tableau:file_uploads:create']),
+  },
+  // Incremental Hyper data update: uploads the action payload, then patches the live datasource.
+  'update-datasource-data': {
+    mcp: ['tableau:mcp:datasource:write'],
+    api: new Set(['tableau:hyper_data:update', 'tableau:file_uploads:create']),
+  },
+  'list-flows': {
+    mcp: ['tableau:mcp:flow:read'],
+    api: new Set(['tableau:content:read', 'tableau:mcp_site_settings:read']),
+  },
+  'run-flow': {
+    mcp: ['tableau:mcp:flow:write'],
+    api: new Set(['tableau:tasks:run']),
+  },
+  'run-extract-refresh': {
+    mcp: ['tableau:mcp:tasks:run'],
+    api: new Set(['tableau:tasks:run']),
+  },
+  'list-sites': {
+    mcp: ['tableau:mcp:site:read'],
+    api: new Set(['tableau:sites:read']),
   },
 };
 

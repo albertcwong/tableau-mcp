@@ -4,8 +4,9 @@ Generated 2026-06-19.
 
 ## OUTCOME (executed on branch `merge/upstream-v2.15`)
 
-Merged `upstream/main` (v2.15.1) into the fork. All 29 conflicts resolved; base is
-green: **tsc 0, eslint clean, build OK, 1775 tests pass**.
+Merged `upstream/main` (v2.15.1) into the fork. All 29 conflicts resolved and all 12 unique
+fork tools ported to the new framework; base is green: **tsc 0, eslint clean, build OK,
+1781 tests pass**.
 
 - **Bucket A** (take-upstream): done — grafted JWT scopes, 50mb body limit, and process
   exception handlers onto upstream's restructured files; dropped my MCP-Apps-only deps
@@ -18,16 +19,21 @@ green: **tsc 0, eslint clean, build OK, 1775 tests pass**.
 - **Bucket D** (re-home): done — dropped my old-location tools (upstream moved them to
   `web/`); my `getSuccessResult`/`structuredContent` shapes were dropped with F1 (they fed
   the dropped apps); took upstream's split `server.web/desktop.test.ts`.
-- **Bucket E** (unique tools): **deferred, not ported.** Upstream rewrote the tool framework
-  (`Tool`→`WebTool`, `extra`-based contract, central scope registry). My 7 unique tool dirs
-  were parked in `.port-pending/` (outside the compile path) with a README porting guide.
-  The SDK support for them is already merged and compiles. Duplicate tools
-  (listProjects/listUsers/listExtractRefreshTasks) were dropped in favor of upstream's.
+- **Bucket E** (unique tools): **done — all 12 ported.** Upstream rewrote the tool framework
+  (`Tool`→`WebTool`, `extra`-based contract, central scope registry). Rewrote all 12 unique
+  tools against `WebTool` and registered them in `web/toolName.ts` (names + groups
+  `flow`/`site`/`file`), `web/tools.ts` (factories), and `server/oauth/scopes.ts` (new MCP
+  scopes `datasource:write`/`workbook:write`/`flow:read`/`flow:write`/`tasks:run`/`site:read`
+  + API scopes incl. `sites:read`). Tools: download-{datasource,workbook,flow},
+  get-downloaded-file, publish-{datasource,workbook,flow}, update-datasource-data, list-flows,
+  run-flow, run-extract-refresh, list-sites. `get-downloaded-file` got a Passthrough-auth guard
+  (no API scopes). Duplicate tools (listProjects/listUsers/listExtractRefreshTasks) were dropped
+  in favor of upstream's. `.port-pending/` removed.
 - **Bucket F** (MCP Apps): **F1 chosen** — adopted upstream's `src/web/apps` model; dropped
   `mcp-app/`, `src/mcpApps.ts`, and the mcp-apps doc.
 
-Remaining work: port the 7 tools in `.port-pending/` to the new `WebTool` framework
-(see `.port-pending/README.md`), one at a time, each verified by build.
+All work complete. Final state: tsc 0, eslint clean, build OK, **1781 tests pass**.
+46 web tools registered (34 upstream + 12 ported).
 
 ---
 

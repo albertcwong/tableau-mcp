@@ -2,16 +2,12 @@ import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { Ok } from 'ts-results-es';
 import { z } from 'zod';
 
-import { getConfig } from '../../config.js';
-import { useRestApi } from '../../restApiInstance.js';
-import { Site } from '../../sdks/tableau/types/site.js';
-import { Server } from '../../server.js';
-import { getTableauAuthInfo } from '../../server/oauth/getTableauAuthInfo.js';
-import { createProductTelemetryBase } from '../../telemetry/productTelemetry/telemetryForwarder.js';
-import { getConfigWithOverrides } from '../../utils/mcpSiteSettings.js';
-import { paginate } from '../../utils/paginate.js';
+import { useRestApi } from '../../../restApiInstance.js';
+import { Site } from '../../../sdks/tableau/types/site.js';
+import { WebMcpServer } from '../../../server.web.js';
+import { paginate } from '../../../utils/paginate.js';
 import { genericFilterDescription } from '../genericFilterDescription.js';
-import { ConstrainedResult, Tool } from '../tool.js';
+import { ConstrainedResult, WebTool } from '../tool.js';
 
 const paramsSchema = {
   filter: z.string().optional(),
@@ -19,8 +15,8 @@ const paramsSchema = {
   limit: z.number().gt(0).optional(),
 };
 
-export const getListSitesTool = (server: Server): Tool<typeof paramsSchema> => {
-  const listSitesTool = new Tool({
+export const getListSitesTool = (server: WebMcpServer): WebTool<typeof paramsSchema> => {
+  const listSitesTool = new WebTool({
     server,
     name: 'list-sites',
     description: `
@@ -46,37 +42,21 @@ export const getListSitesTool = (server: Server): Tool<typeof paramsSchema> => {
       readOnlyHint: true,
       openWorldHint: false,
     },
-    callback: async (
-      { filter, pageSize, limit },
-      { requestId, sessionId, authInfo, signal },
-    ): Promise<CallToolResult> => {
-      const config = getConfig();
-      const restApiArgs = {
-        config,
-        requestId,
-        server,
-        signal,
-        authInfo: getTableauAuthInfo(authInfo),
-      };
-
-      const configWithOverrides = await getConfigWithOverrides({
-        restApiArgs,
-      });
+    callback: async ({ filter, pageSize, limit }, extra): Promise<CallToolResult> => {
+      const configWithOverrides = await extra.getConfigWithOverrides();
 
       return await listSitesTool.logAndExecute({
-        requestId,
-        sessionId,
-        authInfo,
+        extra,
         args: { filter, pageSize, limit },
         callback: async () => {
           return new Ok(
             await useRestApi({
-              ...restApiArgs,
-              jwtScopes: ['tableau:sites:read'],
+              ...extra,
+              jwtScopes: listSitesTool.requiredApiScopes,
               callback: async (restApi) => {
                 const maxResultLimit = configWithOverrides.getMaxResultLimit(listSitesTool.name);
 
-                const sites = await paginate({
+                return await paginate({
                   pageConfig: {
                     pageSize,
                     limit: maxResultLimit
@@ -93,38 +73,23 @@ export const getListSitesTool = (server: Server): Tool<typeof paramsSchema> => {
                     return { pagination, data };
                   },
                 });
-
-                return sites;
               },
             }),
           );
         },
-        constrainSuccessResult: (sites) =>
-          constrainSites({ sites, boundedContext: configWithOverrides.boundedContext }),
-        productTelemetryBase: createProductTelemetryBase(config, authInfo),
+        constrainSuccessResult: (sites): ConstrainedResult<Array<Site>> => {
+          if (sites.length === 0) {
+            return {
+              type: 'empty',
+              message:
+                'No sites were found. Either none exist or you do not have permission to view them.',
+            };
+          }
+          return { type: 'success', result: sites };
+        },
       });
     },
   });
 
   return listSitesTool;
 };
-
-export function constrainSites({
-  sites,
-  boundedContext: _boundedContext,
-}: {
-  sites: Array<Site>;
-  boundedContext: any;
-}): ConstrainedResult<Array<Site>> {
-  if (sites.length === 0) {
-    return {
-      type: 'empty',
-      message: 'No sites were found. Either none exist or you do not have permission to view them.',
-    };
-  }
-
-  return {
-    type: 'success',
-    result: sites,
-  };
-}

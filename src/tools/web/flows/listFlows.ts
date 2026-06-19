@@ -2,15 +2,11 @@ import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { Ok } from 'ts-results-es';
 import { z } from 'zod';
 
-import { getConfig } from '../../config.js';
-import { useRestApi } from '../../restApiInstance.js';
-import { Server } from '../../server.js';
-import { getTableauAuthInfo } from '../../server/oauth/getTableauAuthInfo.js';
-import { createProductTelemetryBase } from '../../telemetry/productTelemetry/telemetryForwarder.js';
-import { getConfigWithOverrides } from '../../utils/mcpSiteSettings.js';
-import { paginate } from '../../utils/paginate.js';
+import { useRestApi } from '../../../restApiInstance.js';
+import { WebMcpServer } from '../../../server.web.js';
+import { paginate } from '../../../utils/paginate.js';
 import { genericFilterDescription } from '../genericFilterDescription.js';
-import { Tool } from '../tool.js';
+import { ConstrainedResult, WebTool } from '../tool.js';
 
 const paramsSchema = {
   filter: z.string().optional(),
@@ -18,8 +14,8 @@ const paramsSchema = {
   limit: z.number().gt(0).optional(),
 };
 
-export const getListFlowsTool = (server: Server): Tool<typeof paramsSchema> => {
-  const listFlowsTool = new Tool({
+export const getListFlowsTool = (server: WebMcpServer): WebTool<typeof paramsSchema> => {
+  const listFlowsTool = new WebTool({
     server,
     name: 'list-flows',
     description: `
@@ -46,36 +42,20 @@ export const getListFlowsTool = (server: Server): Tool<typeof paramsSchema> => {
       readOnlyHint: true,
       openWorldHint: false,
     },
-    callback: async (
-      { filter, pageSize, limit },
-      { requestId, sessionId, authInfo, signal },
-    ): Promise<CallToolResult> => {
-      const config = getConfig();
-      const restApiArgs = {
-        config,
-        requestId,
-        server,
-        signal,
-        authInfo: getTableauAuthInfo(authInfo),
-      };
-
-      const configWithOverrides = await getConfigWithOverrides({
-        restApiArgs,
-      });
+    callback: async ({ filter, pageSize, limit }, extra): Promise<CallToolResult> => {
+      const configWithOverrides = await extra.getConfigWithOverrides();
 
       return await listFlowsTool.logAndExecute({
-        requestId,
-        sessionId,
-        authInfo,
+        extra,
         args: { filter, pageSize, limit },
         callback: async () => {
           const flows = await useRestApi({
-            ...restApiArgs,
-            jwtScopes: ['tableau:content:read'],
+            ...extra,
+            jwtScopes: listFlowsTool.requiredApiScopes,
             callback: async (restApi) => {
               const maxResultLimit = configWithOverrides.getMaxResultLimit(listFlowsTool.name);
 
-              const flows = await paginate({
+              return await paginate({
                 pageConfig: {
                   pageSize,
                   limit: maxResultLimit
@@ -93,19 +73,23 @@ export const getListFlowsTool = (server: Server): Tool<typeof paramsSchema> => {
                   return { pagination, data };
                 },
               });
-
-              return flows;
             },
           });
 
           return new Ok(flows);
         },
-        constrainSuccessResult: (flows) => ({ type: 'success' as const, result: flows }),
-        getSuccessResult: (flows) => ({
-          isError: false,
-          content: [{ type: 'text' as const, text: JSON.stringify(flows) }],
-        }),
-        productTelemetryBase: createProductTelemetryBase(config, authInfo),
+        constrainSuccessResult: (
+          flows: Array<Record<string, unknown>>,
+        ): ConstrainedResult<Array<Record<string, unknown>>> => {
+          if (flows.length === 0) {
+            return {
+              type: 'empty',
+              message:
+                'No flows were found. Either none exist or you do not have permission to view them.',
+            };
+          }
+          return { type: 'success', result: flows };
+        },
       });
     },
   });

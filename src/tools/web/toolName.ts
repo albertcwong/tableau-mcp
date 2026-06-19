@@ -33,6 +33,18 @@ export const webToolNames = [
   'query-admin-insights-site-content',
   'query-admin-insights-job-performance',
   'get-stale-content-report',
+  'download-datasource',
+  'download-workbook',
+  'download-flow',
+  'get-downloaded-file',
+  'publish-datasource',
+  'publish-workbook',
+  'publish-flow',
+  'update-datasource-data',
+  'list-flows',
+  'run-flow',
+  'run-extract-refresh',
+  'list-sites',
 ] as const;
 export type WebToolName = (typeof webToolNames)[number];
 
@@ -48,6 +60,9 @@ export const webToolGroupNames = [
   'users',
   'token-management',
   'admin-insights',
+  'flow',
+  'site',
+  'file',
 ] as const;
 export type WebToolGroupName = (typeof webToolGroupNames)[number];
 
@@ -57,8 +72,17 @@ export const webToolGroups = {
     'get-datasource-metadata',
     'query-datasource',
     'delete-datasource',
+    'download-datasource',
+    'publish-datasource',
+    'update-datasource-data',
   ],
-  workbook: ['list-workbooks', 'get-workbook', 'delete-workbook'],
+  workbook: [
+    'list-workbooks',
+    'get-workbook',
+    'delete-workbook',
+    'download-workbook',
+    'publish-workbook',
+  ],
   project: ['list-projects'],
   view: [
     'list-views',
@@ -79,7 +103,10 @@ export const webToolGroups = {
     'generate-pulse-insight-brief',
   ],
   'content-exploration': ['search-content'],
-  tasks: ['list-extract-refresh-tasks', 'delete-extract-refresh-task'],
+  tasks: ['list-extract-refresh-tasks', 'delete-extract-refresh-task', 'run-extract-refresh'],
+  flow: ['list-flows', 'run-flow', 'download-flow', 'publish-flow'],
+  site: ['list-sites'],
+  file: ['get-downloaded-file'],
   jobs: ['list-jobs'],
   users: ['list-users'],
   'token-management': ['get-oauth-token', 'revoke-access-token', 'reset-consent'],

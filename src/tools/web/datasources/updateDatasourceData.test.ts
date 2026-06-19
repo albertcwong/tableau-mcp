@@ -1,8 +1,9 @@
 import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 
-import { Server } from '../../server.js';
-import invariant from '../../utils/invariant.js';
-import { Provider } from '../../utils/provider.js';
+import { WebMcpServer } from '../../../server.web.js';
+import invariant from '../../../utils/invariant.js';
+import { Provider } from '../../../utils/provider.js';
+import { getMockRequestHandlerExtra } from '../toolContext.mock.js';
 import { getUpdateDatasourceDataTool } from './updateDatasourceData.js';
 
 const mocks = vi.hoisted(() => ({
@@ -11,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   mockUpdateDatasourceData: vi.fn(),
 }));
 
-vi.mock('../../restApiInstance.js', () => ({
+vi.mock('../../../restApiInstance.js', () => ({
   useRestApi: vi.fn().mockImplementation(async ({ callback }) =>
     callback({
       siteId: 'test-site-id',
@@ -26,10 +27,6 @@ vi.mock('../../restApiInstance.js', () => ({
   ),
 }));
 
-vi.mock('../../utils/mcpSiteSettings.js', () => ({
-  getConfigWithOverrides: vi.fn().mockResolvedValue(undefined),
-}));
-
 describe('updateDatasourceDataTool', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -39,7 +36,7 @@ describe('updateDatasourceDataTool', () => {
   });
 
   it('should create a tool instance with correct properties', () => {
-    const tool = getUpdateDatasourceDataTool(new Server());
+    const tool = getUpdateDatasourceDataTool(new WebMcpServer());
     expect(tool.name).toBe('update-datasource-data');
     expect(tool.description).toContain('Incrementally updates data');
     expect(tool.paramsSchema).toMatchObject({
@@ -84,7 +81,6 @@ describe('updateDatasourceDataTool', () => {
     invariant(result.content[0].type === 'text');
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.jobId).toBe('job-456');
-    expect(parsed.message).toContain('Re-query the datasource');
     expect(mocks.mockInitiateFileUpload).toHaveBeenCalledWith({ siteId: 'test-site-id' });
     expect(mocks.mockAppendToFileUpload).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -136,22 +132,16 @@ async function getToolResult(params: {
   sourceTables?: string[];
   connectionId?: string;
 }): Promise<CallToolResult> {
-  const tool = getUpdateDatasourceDataTool(new Server());
+  const tool = getUpdateDatasourceDataTool(new WebMcpServer());
   const callback = await Provider.from(tool.callback);
-  return await callback(
-    {
-      datasourceId: params.datasourceId,
-      actions: params.actions,
-      payloadHyperBase64: params.payloadHyperBase64,
-      sourceTables: params.sourceTables,
-      connectionId: params.connectionId,
-    },
-    {
-      signal: new AbortController().signal,
-      requestId:
-        'test-request-id' as unknown as import('@modelcontextprotocol/sdk/types.js').RequestId,
-      sendNotification: vi.fn(),
-      sendRequest: vi.fn(),
-    },
-  );
+  // The arg shape is validated by the tool's zod schema at runtime; the test passes a partial
+  // set of plain values, so cast to satisfy the inferred (fully-typed) callback parameter.
+  const args = {
+    datasourceId: params.datasourceId,
+    actions: params.actions,
+    payloadHyperBase64: params.payloadHyperBase64,
+    sourceTables: params.sourceTables,
+    connectionId: params.connectionId,
+  } as unknown as Parameters<typeof callback>[0];
+  return await callback(args, getMockRequestHandlerExtra());
 }

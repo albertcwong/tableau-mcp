@@ -7,6 +7,11 @@ const INLINE_THRESHOLD_BYTES = 5 * 1024 * 1024; // 5 MB
 
 let downloadDir: string | undefined;
 
+/** Normalizes an ArrayBuffer-or-Buffer into a Buffer (Node's Buffer.from overloads reject the union). */
+function toBuffer(data: ArrayBuffer | Buffer): Buffer {
+  return Buffer.isBuffer(data) ? data : Buffer.from(new Uint8Array(data));
+}
+
 /**
  * Returns (and lazily creates) a shared temporary directory for downloaded files.
  * The directory is created once per process under the OS temp dir.
@@ -29,7 +34,7 @@ export async function saveDownloadToTempFile(
   // Prefix with timestamp to avoid collisions
   const safeName = `${Date.now()}-${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
   const filePath = join(dir, safeName);
-  const buf = Buffer.from(data);
+  const buf = toBuffer(data);
   await writeFile(filePath, buf);
   return { filePath, sizeBytes: buf.length };
 }
@@ -49,7 +54,7 @@ export async function processDownload(
   filename: string,
   data: ArrayBuffer | Buffer,
 ): Promise<DownloadResult> {
-  const buf = Buffer.from(data);
+  const buf = toBuffer(data);
   if (buf.length <= INLINE_THRESHOLD_BYTES) {
     return {
       filename,

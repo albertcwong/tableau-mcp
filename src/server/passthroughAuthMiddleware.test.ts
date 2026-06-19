@@ -21,6 +21,9 @@ const TOOLS_WITHOUT_API_SCOPES_WITH_PASSTHROUGH_GUARD: ReadonlyArray<WebToolName
   // Consent lifecycle tool: no Tableau REST API call. The tool callback explicitly returns an error
   // for non-Bearer auth types, so passthrough callers are rejected.
   'reset-consent',
+  // Reads a server-local temp file from a prior download in this session — no Tableau REST API call.
+  // The tool callback explicitly returns an error for Passthrough auth, so passthrough callers are rejected.
+  'get-downloaded-file',
 ];
 
 describe('passthroughAuthMiddleware', () => {

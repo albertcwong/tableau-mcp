@@ -1,6 +1,6 @@
 import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 
-import { DownloadResult } from '../../utils/downloadTempFile.js';
+import { DownloadResult } from '../../../utils/downloadTempFile.js';
 
 /**
  * Formats a DownloadResult into a CallToolResult.
