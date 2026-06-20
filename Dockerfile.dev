@@ -6,9 +6,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 python3
   && pip install --break-system-packages uv && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
-COPY mcp-app ./mcp-app
-RUN npm run build:mcp-app && cp -r build/mcp-app /opt/mcp-app-prebuilt
-# src/, build/, mcp-app/ volume-mounted at runtime
+# src/, build/, mcp-app/ volume-mounted at runtime; the host builds build/ via `npm run build`
+# and the entrypoint just runs it. (The old standalone mcp-app prebuilt step was dropped — the
+# v2.15 refactor folded the MCP Apps UI into `npm run build`, and the old impl is superseded.)
 COPY scripts/ /app/scripts/
 RUN chmod +x /app/scripts/dev-docker.sh && cd /app/scripts && uv sync
 CMD ["sh", "/app/scripts/dev-docker.sh"]

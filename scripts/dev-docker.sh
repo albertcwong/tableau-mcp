@@ -1,5 +1,5 @@
 #!/bin/sh
-# Dev container entrypoint: build mcp-app (or use prebuilt from image), then tsx + vite watch
+# Dev container entrypoint: run the built HTTP server against the volume-mounted build/.
 set -e
 # Ensure node_modules has correct platform binaries (volume may have wrong arch from prior runs)
 npm ci
@@ -7,13 +7,9 @@ npm ci
 if [ -f /app/scripts/pyproject.toml ]; then
   (cd /app/scripts && UV_PROJECT_ENVIRONMENT=/app/.venv-hyper uv sync)
 fi
-# Build MCP app UI (required for read_resource). Use prebuilt from image if build fails.
-if ! npm run build:mcp-app; then
-  if [ -d /opt/mcp-app-prebuilt ]; then
-    echo "Using prebuilt MCP app from image"
-    mkdir -p /app/build/mcp-app && cp -r /opt/mcp-app-prebuilt/* /app/build/mcp-app/
-  else
-    echo "WARN: build:mcp-app failed and no prebuilt fallback - MCP Apps UI may be unavailable"
-  fi
-fi
-exec npm run dev:docker
+# The build/ dir is volume-mounted from the host (compose), which the host builds via
+# `npm run build` (tsx src/scripts/build.ts — produces index.js + the bundled MCP Apps UI).
+# We don't rebuild in-container: build/ being a mount makes tsx's rmdir step fail with EBUSY,
+# and the old standalone `build:mcp-app` / `dev:docker` scripts were removed in the v2.15
+# refactor. Just run the built server; env (TRANSPORT/PORT/AUTH/PAT_*) comes from compose env_file.
+exec npm run start:http
